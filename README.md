@@ -2,7 +2,7 @@
 
 A professional web-based coaching tracker for insurance agencies to manage, assess, and monitor financial planner development.
 
-## Features
+## Features 
 
 - **Role-Based Access**: Admin, Senior Manager, Manager, and Planner roles
 - **Coaching Cycle Management**: OBSERVE → DISCUSS → ASSESS → COACH → AGREE ON ACTION → FOLLOW UP → CONFIRM
