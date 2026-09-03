@@ -9,43 +9,51 @@ export const useAuth = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if user is logged in
+    let isMounted = true;
+
     const initializeAuth = async () => {
       try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+        // Set up auth state listener FIRST - this initializes the session
+        const { data: subscription } = authService.onAuthStateChange(async (currentUser) => {
+          if (!isMounted) return;
+          
+          setUser(currentUser);
 
-        if (currentUser) {
-          const { data: userProfile, error: profileError } = await userService.getUserProfile(currentUser.id);
-          if (profileError) throw profileError;
-          setProfile(userProfile);
-        }
+          if (currentUser) {
+            try {
+              const { data: userProfile } = await userService.getUserProfile(currentUser.id);
+              if (isMounted) {
+                setProfile(userProfile);
+              }
+            } catch (err) {
+              console.error('Error loading profile:', err);
+              if (isMounted) setError(err);
+            }
+          } else {
+            if (isMounted) setProfile(null);
+          }
+          
+          if (isMounted) setLoading(false);
+        });
+
+        // Cleanup
+        return () => {
+          isMounted = false;
+          if (subscription?.unsubscribe) {
+            subscription.unsubscribe();
+          }
+        };
       } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          setError(err);
+          setLoading(false);
+        }
       }
     };
 
-    // Set up auth listener
-    const { data: subscription } = authService.onAuthStateChange(async (currentUser) => {
-      setUser(currentUser);
-
-      if (currentUser) {
-        const { data: userProfile } = await userService.getUserProfile(currentUser.id);
-        setProfile(userProfile);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    initializeAuth();
-
-    // Cleanup
+    const cleanup = initializeAuth();
     return () => {
-      if (subscription) {
-        subscription.unsubscribe?.();
-      }
+      if (cleanup) cleanup.then(fn => fn?.());
     };
   }, []);
 
