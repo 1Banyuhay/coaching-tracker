@@ -1,26 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
-import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { Mail, Lock, LogIn } from 'lucide-react';
 import './Auth.css';
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [justLoggedIn, setJustLoggedIn] = useState(false);
-
-  useEffect(() => {
-    if (justLoggedIn && profile) {
-      console.log('Profile loaded, redirecting to dashboard');
-      navigate('/');
-    }
-  }, [profile, justLoggedIn, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,59 +18,18 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await
-git add src/components/Auth/LoginForm.js
-git commit -m "Fix: remove unused variables"
-git push origin main
-git add src/components/Auth/LoginForm.js
-git commit -m "Fix: remove unused variables"
-git push origin main
-cat > src/components/Auth/LoginForm.js << 'EOF'
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authService } from '../../services/authService';
-import { useAuth } from '../../hooks/useAuth';
-import toast from 'react-hot-toast';
-import { Mail, Lock, LogIn } from 'lucide-react';
-import './Auth.css';
+      const { error: authError } = await authService.login(email, password);
 
-const LoginForm = () => {
-  const navigate = useNavigate();
-  const { profile } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [justLoggedIn, setJustLoggedIn] = useState(false);
-
-  useEffect(() => {
-    if (justLoggedIn && profile) {
-      console.log('Profile loaded, redirecting to dashboard');
-      navigate('/');
-    }
-  }, [profile, justLoggedIn, navigate]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const { error } = await authService.login(email, password);
-
-      if (error) {
-        console.error('Login error:', error);
-        setError(error.message || 'Login failed');
+      if (authError) {
+        setError(authError.message || 'Login failed');
         toast.error('Login failed');
         setLoading(false);
         return;
       }
 
-      console.log('Login successful, waiting for profile...');
-      setJustLoggedIn(true);
       toast.success('Welcome back!');
+      navigate('/');
     } catch (err) {
-      console.error('Signin caught error:', err);
       setError(err.message || 'An unexpected error occurred');
       toast.error(err.message || 'An unexpected error occurred');
       setLoading(false);
@@ -137,9 +86,7 @@ const LoginForm = () => {
         </form>
 
         <div className="auth-footer">
-          <p className="demo-note">
-            Demo: Use your Supabase credentials to sign in
-          </p>
+          <p className="demo-note">Demo: Use your Supabase credentials to sign in</p>
         </div>
       </div>
     </div>
