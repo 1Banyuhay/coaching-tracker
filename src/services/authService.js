@@ -1,29 +1,29 @@
-import { supabase } from '../config/supabase';
+import { supabaseClient } from '../config/supabase';
 
 export const authService = {
-  signin: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+  async login(email, password) {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
     });
     return { data, error };
   },
 
-  getCurrentUser: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+  async logout() {
+    return await supabaseClient.auth.signOut();
+  },
+
+  async getSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session;
+  },
+
+  async getUser() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
     return user;
   },
 
-  onAuthStateChange: (callback) => {
-    // Supabase passes (event, session) - we need the session.user
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      callback(session?.user);
-    });
-    return data;
+  onAuthStateChange(callback) {
+    return supabaseClient.auth.onAuthStateChange(callback);
   },
-
-  signOut: async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  }
 };
