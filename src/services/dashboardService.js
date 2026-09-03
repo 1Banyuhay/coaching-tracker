@@ -4,22 +4,22 @@ export const dashboardService = {
   // Admin: See everything
   async getAdminDashboard() {
     try {
-      const { data: seniors, error: sError } = await supabaseClient
+      const { data: seniors } = await supabaseClient
         .from('profiles')
         .select('*')
         .eq('role', 'senior_manager');
 
-      const { data: managers, error: mError } = await supabaseClient
+      const { data: managers } = await supabaseClient
         .from('profiles')
         .select('*')
         .eq('role', 'manager');
 
-      const { data: planners, error: pError } = await supabaseClient
+      const { data: planners } = await supabaseClient
         .from('profiles')
         .select('*')
         .eq('role', 'planner');
 
-      const { data: sessions, error: sessError } = await supabaseClient
+      const { data: sessions } = await supabaseClient
         .from('coaching_sessions')
         .select('*');
 
@@ -89,8 +89,6 @@ export const dashboardService = {
         .select('*')
         .eq('reports_to_id', userId)
         .eq('role', 'planner');
-
-      const plannerIds = planners?.map(p => p.id) || [];
 
       const { data: sessions } = await supabaseClient
         .from('coaching_sessions')
