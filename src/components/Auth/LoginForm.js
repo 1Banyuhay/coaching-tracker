@@ -14,22 +14,29 @@ const LoginForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('handleSubmit called with:', email, password);
+    
     setError(null);
     setLoading(true);
 
     try {
+      console.log('Calling authService.login...');
       const { error: authError } = await authService.login(email, password);
+      console.log('authService.login returned:', { authError });
 
       if (authError) {
+        console.error('Auth error:', authError);
         setError(authError.message || 'Login failed');
         toast.error('Login failed');
         setLoading(false);
         return;
       }
 
+      console.log('Login successful!');
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
+      console.error('Catch error:', err);
       setError(err.message || 'An unexpected error occurred');
       toast.error(err.message || 'An unexpected error occurred');
       setLoading(false);
