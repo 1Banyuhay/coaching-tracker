@@ -62,7 +62,8 @@ export const authService = {
       });
 
       if (error) throw error;
-      return { error: null };
+      window.location.href = "/login";
+    return { error: null };
     } catch (error) {
       return { error };
     }
@@ -76,7 +77,8 @@ export const authService = {
       });
 
       if (error) throw error;
-      return { error: null };
+      window.location.href = "/login";
+    return { error: null };
     } catch (error) {
       return { error };
     }
