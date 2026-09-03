@@ -1,3 +1,0 @@
-# This file is intentionally minimal - deployment is handled by Cloudflare Pages
-name = "coaching-tracker"
-type = "javascript"
