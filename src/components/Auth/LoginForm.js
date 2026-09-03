@@ -21,6 +21,7 @@ const LoginForm = () => {
       const { error } = await authService.signin(email, password);
 
       if (error) {
+        console.error('Login error:', error);
         setError(error.message || 'Login failed');
         toast.error('Login failed');
         return;
@@ -29,8 +30,9 @@ const LoginForm = () => {
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
-      setError('An unexpected error occurred');
-      toast.error('An unexpected error occurred');
+      console.error('Signin caught error:', err);
+      setError(err.message || 'An unexpected error occurred');
+      toast.error(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
