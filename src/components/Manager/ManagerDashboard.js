@@ -6,13 +6,7 @@ import toast from 'react-hot-toast';
 import './ManagerDashboard.css';
 
 const ManagerDashboard = () => {
-  console.log('=== ManagerDashboard MOUNTED ===');
-  
   const { profile, loading: authLoading } = useAuth();
-  
-  console.log('Profile:', profile);
-  console.log('Auth Loading:', authLoading);
-
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [stats, setStats] = useState({
@@ -22,69 +16,71 @@ const ManagerDashboard = () => {
   });
 
   const loadDashboardData = async (profileData) => {
-    console.log('Loading dashboard data for profile:', profileData);
+    console.log('🟢 loadDashboardData called with:', profileData);
     setLoading(true);
     try {
+      console.log('🟢 Getting date range...');
       const range = getDateRange('month');
-      console.log('Date range:', range);
-
+      console.log('🟢 Date range:', range);
+      
+      console.log('🟢 Calling coachingService.getManagerCoachingSessions...');
       const { data: coachingSessions, error } = await coachingService.getManagerCoachingSessions(
         profileData.id,
         range.start,
         range.end
       );
-
-      console.log('Coaching sessions result:', { data: coachingSessions, error });
+      console.log('🟢 coachingService returned:', { sessionsCount: coachingSessions?.length, error });
 
       if (error) {
-        console.error('Error loading sessions:', error);
+        console.error('🟢 Error:', error);
         toast.error('Failed to load coaching sessions');
         setLoading(false);
         return;
       }
 
+      console.log('🟢 Setting sessions and stats...');
       setSessions(coachingSessions || []);
       setStats({
         totalSessions: coachingSessions?.length || 0,
         plannersCoached: new Set(coachingSessions?.map(s => s.planner_id) || []).size,
         totalPlanners: 1,
       });
-
-      console.log('Dashboard data loaded successfully');
-    } catch (error) {
-      console.error('Dashboard error:', error);
-      toast.error('Error loading dashboard');
-    } finally {
+      console.log('🟢 Dashboard data loaded!');
+      setLoading(false);
+    } catch (err) {
+      console.error('🟢 Catch error:', err);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log('Dashboard useEffect running');
-    console.log('Profile available?', !!profile);
-    console.log('Auth loading?', authLoading);
-
+    console.log('🟢 Dashboard useEffect - authLoading:', authLoading, 'profile:', profile);
+    
     if (authLoading) {
-      console.log('Auth still loading, waiting...');
+      console.log('🟢 Still waiting for auth...');
       return;
     }
 
     if (!profile) {
-      console.log('No profile found!');
+      console.log('🟢 No profile!');
       setLoading(false);
       return;
     }
 
+    console.log('🟢 Profile ready, loading dashboard data');
     loadDashboardData(profile);
   }, [profile, authLoading]);
 
-  console.log('Render state - Loading:', loading, 'Sessions:', sessions.length);
-
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading dashboard...</p>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#f5f1ed'
+      }}>
+        <p style={{ color: '#6b4423', fontSize: '16px' }}>Loading data...</p>
       </div>
     );
   }
