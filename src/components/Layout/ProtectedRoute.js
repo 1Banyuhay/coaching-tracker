@@ -19,16 +19,21 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
 
   // Check if user has required role
-  if (requiredRole && role !== requiredRole) {
-    // Redirect to appropriate dashboard
-    if (role === 'manager') {
-      return <Navigate to="/manager/dashboard" replace />;
-    } else if (role === 'planner') {
-      return <Navigate to="/planner/dashboard" replace />;
-    } else if (role === 'admin') {
-      return <Navigate to="/admin/dashboard" replace />;
+  if (requiredRole) {
+    const hasRole = role === requiredRole || 
+                    (requiredRole === 'manager' && role === 'senior_manager');
+    
+    if (!hasRole) {
+      // Redirect to appropriate dashboard
+      if (role === 'manager' || role === 'senior_manager') {
+        return <Navigate to="/manager/dashboard" replace />;
+      } else if (role === 'planner') {
+        return <Navigate to="/planner/dashboard" replace />;
+      } else if (role === 'admin') {
+        return <Navigate to="/admin/dashboard" replace />;
+      }
+      return <Navigate to="/" replace />;
     }
-    return <Navigate to="/" replace />;
   }
 
   return children;
