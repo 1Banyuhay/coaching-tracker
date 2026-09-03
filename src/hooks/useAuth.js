@@ -10,14 +10,18 @@ export const useAuth = () => {
   useEffect(() => {
     let isMounted = true;
 
-    // Listen for auth changes
     const subscription = authService.onAuthStateChange(async (currentUser) => {
+      console.log('Auth state changed. Current user:', currentUser);
+      
       if (!isMounted) return;
       
       setUser(currentUser);
 
       if (currentUser) {
-        const { data: userProfile } = await userService.getUserProfile(currentUser.id);
+        console.log('Fetching profile for ID:', currentUser.id);
+        const { data: userProfile, error } = await userService.getUserProfile(currentUser.id);
+        console.log('Profile result:', userProfile, error);
+        
         if (isMounted) setProfile(userProfile);
       } else {
         if (isMounted) setProfile(null);
