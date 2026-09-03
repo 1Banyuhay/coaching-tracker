@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { coachingService } from '../../services/coachingService';
-import { userService } from '../../services/userService';
 import { getDateRange, formatDate } from '../../utils/dateHelpers';
-import { Users, FileText, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import './ManagerDashboard.css';
 
@@ -12,7 +9,6 @@ const ManagerDashboard = () => {
   console.log('=== ManagerDashboard MOUNTED ===');
   
   const { profile, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   
   console.log('Profile:', profile);
   console.log('Auth Loading:', authLoading);
@@ -25,34 +21,15 @@ const ManagerDashboard = () => {
     totalSessions: 0,
   });
 
-  useEffect(() => {
-    console.log('Dashboard useEffect running');
-    console.log('Profile available?', !!profile);
-    console.log('Auth loading?', authLoading);
-
-    if (authLoading) {
-      console.log('Auth still loading, waiting...');
-      return;
-    }
-
-    if (!profile) {
-      console.log('No profile found!');
-      setLoading(false);
-      return;
-    }
-
-    loadDashboardData();
-  }, [profile, authLoading]);
-
-  const loadDashboardData = async () => {
-    console.log('Loading dashboard data for profile:', profile);
+  const loadDashboardData = async (profileData) => {
+    console.log('Loading dashboard data for profile:', profileData);
     setLoading(true);
     try {
       const range = getDateRange('month');
       console.log('Date range:', range);
 
       const { data: coachingSessions, error } = await coachingService.getManagerCoachingSessions(
-        profile.id,
+        profileData.id,
         range.start,
         range.end
       );
@@ -81,6 +58,25 @@ const ManagerDashboard = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    console.log('Dashboard useEffect running');
+    console.log('Profile available?', !!profile);
+    console.log('Auth loading?', authLoading);
+
+    if (authLoading) {
+      console.log('Auth still loading, waiting...');
+      return;
+    }
+
+    if (!profile) {
+      console.log('No profile found!');
+      setLoading(false);
+      return;
+    }
+
+    loadDashboardData(profile);
+  }, [profile, authLoading]);
 
   console.log('Render state - Loading:', loading, 'Sessions:', sessions.length);
 
