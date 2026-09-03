@@ -1,54 +1,83 @@
-import { useEffect, useState } from 'react';
-import { authService } from '../services/authService';
-import { userService } from '../services/userService';
+import { useState, useEffect } from 'react';
+import { supabaseClient } from '../config/supabase';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    let unsubscribe;
+    let mounted = true;
 
-    const initAuth = async () => {
-      // Get the current session
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
-
-      if (currentUser) {
-        const { data: userProfile } = await userService.getUserProfile(currentUser.id);
-        setProfile(userProfile);
-      }
-
-      setLoading(false);
-
-      // Subscribe to auth changes for future updates
-      unsubscribe = authService.onAuthStateChange(async (authUser) => {
-        setUser(authUser);
-        if (authUser) {
-          const { data: userProfile } = await userService.getUserProfile(authUser.id);
-          setProfile(userProfile);
-        } else {
-          setProfile(null);
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        if (session?.user && mounted) {
+          setUser(session.user);
+          
+          const { data: profileData, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (mounted) {
+            if (profileError) {
+              console.error('Profile fetch error:', profileError);
+              setError(profileError.message);
+            } else {
+              setProfile(profileData);
+            }
+            setLoading(false);
+          }
+        } else if (mounted) {
+          setLoading(false);
         }
-      });
+      } catch (err) {
+        if (mounted) {
+          console.error('Auth initialization error:', err);
+          setError(err.message);
+          setLoading(false);
+        }
+      }
     };
 
-    initAuth();
+    initializeAuth();
+
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        if (session?.user) {
+          setUser(session.user);
+          const { data: profileData } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          if (mounted) {
+            setProfile(profileData);
+          }
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+      }
+    );
 
     return () => {
-      if (unsubscribe?.unsubscribe) {
-        unsubscribe.unsubscribe();
-      }
+      mounted = false;
+      subscription?.unsubscribe();
     };
   }, []);
 
-  return {
-    user,
-    profile,
-    loading,
-    isAuthenticated: !!user,
-    role: profile?.role,
-    logout: authService.signOut,
+  const logout = async () => {
+    await supabaseClient.auth.signOut();
+    setUser(null);
+    setProfile(null);
   };
+
+  return { user, profile, loading, error, logout };
 };
