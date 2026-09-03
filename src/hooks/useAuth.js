@@ -8,31 +8,38 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    let unsubscribe;
 
-    const subscription = authService.onAuthStateChange(async (currentUser) => {
-      console.log('Auth state changed. Current user:', currentUser);
-      
-      if (!isMounted) return;
-      
+    const initAuth = async () => {
+      // Get the current session
+      const currentUser = await authService.getCurrentUser();
       setUser(currentUser);
 
       if (currentUser) {
-        console.log('Fetching profile for ID:', currentUser.id);
-        const { data: userProfile, error } = await userService.getUserProfile(currentUser.id);
-        console.log('Profile result:', userProfile, error);
-        
-        if (isMounted) setProfile(userProfile);
-      } else {
-        if (isMounted) setProfile(null);
+        const { data: userProfile } = await userService.getUserProfile(currentUser.id);
+        setProfile(userProfile);
       }
-      
-      if (isMounted) setLoading(false);
-    });
+
+      setLoading(false);
+
+      // Subscribe to auth changes for future updates
+      unsubscribe = authService.onAuthStateChange(async (authUser) => {
+        setUser(authUser);
+        if (authUser) {
+          const { data: userProfile } = await userService.getUserProfile(authUser.id);
+          setProfile(userProfile);
+        } else {
+          setProfile(null);
+        }
+      });
+    };
+
+    initAuth();
 
     return () => {
-      isMounted = false;
-      if (subscription?.unsubscribe) subscription.unsubscribe();
+      if (unsubscribe?.unsubscribe) {
+        unsubscribe.unsubscribe();
+      }
     };
   }, []);
 
