@@ -70,11 +70,18 @@ export const useAuth = () => {
     };
   }, []);
 
+  const logout = async () => {
+    await supabaseClient.auth.signOut();
+    setUser(null);
+    setProfile(null);
+  };
+
   return {
     user,
     profile,
     loading,
     isAuthenticated: !!user && !!profile,
-    role: profile?.role || null
+    role: profile?.role || null,
+    logout
   };
 };
