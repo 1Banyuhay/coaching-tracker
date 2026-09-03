@@ -15,7 +15,10 @@ export const authService = {
   },
 
   onAuthStateChange: (callback) => {
-    const { data } = supabase.auth.onAuthStateChange(callback);
+    // Supabase passes (event, session) - we need the session.user
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      callback(session?.user);
+    });
     return data;
   },
 
