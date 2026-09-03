@@ -18,7 +18,7 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await authService.signin(email, password);
+      const { data, error } = await authService.login(email, password);
 
       if (error) {
         console.error('Login error:', error);
@@ -27,6 +27,7 @@ const LoginForm = () => {
         return;
       }
 
+      console.log('Login successful:', data);
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
