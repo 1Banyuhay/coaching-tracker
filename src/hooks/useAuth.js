@@ -9,14 +9,12 @@ export const useAuth = () => {
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
+    const checkAuth = async () => {
       try {
-        // First check if there's already a session
         const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session?.user && mounted) {
           setUser(session.user);
-          // Load profile from database
           const { data: profileData } = await supabaseClient
             .from('profiles')
             .select('*')
@@ -38,10 +36,8 @@ export const useAuth = () => {
       }
     };
 
-    // Initialize auth on mount
-    initAuth();
+    checkAuth();
 
-    // Also listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -74,5 +70,11 @@ export const useAuth = () => {
     };
   }, []);
 
-  return { user, profile, loading };
+  return {
+    user,
+    profile,
+    loading,
+    isAuthenticated: !!user && !!profile,
+    role: profile?.role || null
+  };
 };
