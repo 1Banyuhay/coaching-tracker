@@ -14,26 +14,32 @@ const LoginForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🔵 FORM SUBMITTED');
     setError(null);
     setLoading(true);
 
     try {
-      const { error: authError } = await authService.login(email, password);
+      console.log('🔵 Calling authService.login...');
+      const result = await authService.login(email, password);
+      console.log('🔵 authService.login returned:', result);
+
+      const { error: authError } = result;
 
       if (authError) {
+        console.log('🔵 Auth error:', authError);
         setError(authError.message || 'Login failed');
         toast.error('Login failed');
         setLoading(false);
         return;
       }
 
+      console.log('🔵 Login successful, navigating...');
       toast.success('Welcome back!');
-      
-      // Wait 500ms for Supabase to write session to storage
       setTimeout(() => {
         navigate('/');
       }, 500);
     } catch (err) {
+      console.error('🔵 Catch error:', err);
       setError(err.message || 'An unexpected error occurred');
       toast.error(err.message || 'An unexpected error occurred');
       setLoading(false);
