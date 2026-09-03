@@ -1,0 +1,112 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { BarChart3, FileText, Users, Settings, CheckCircle2, BookOpen, X } from 'lucide-react';
+import './Sidebar.css';
+
+const Sidebar = ({ role }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const getMenuItems = () => {
+    switch (role) {
+      case 'manager':
+        return [
+          {
+            label: 'Dashboard',
+            path: '/manager/dashboard',
+            icon: <BarChart3 size={20} />,
+          },
+          {
+            label: 'Start Coaching',
+            path: '/manager/coaching/start',
+            icon: <FileText size={20} />,
+          },
+          {
+            label: 'My Planners',
+            path: '/manager/planners',
+            icon: <Users size={20} />,
+          },
+        ];
+
+      case 'planner':
+        return [
+          {
+            label: 'Dashboard',
+            path: '/planner/dashboard',
+            icon: <BarChart3 size={20} />,
+          },
+          {
+            label: 'Pending Confirmations',
+            path: '/planner/confirmations',
+            icon: <CheckCircle2 size={20} />,
+          },
+        ];
+
+      case 'admin':
+        return [
+          {
+            label: 'Dashboard',
+            path: '/admin/dashboard',
+            icon: <BarChart3 size={20} />,
+          },
+          {
+            label: 'Coaching Library',
+            path: '/admin/library',
+            icon: <BookOpen size={20} />,
+          },
+          {
+            label: 'Users',
+            path: '/admin/users',
+            icon: <Users size={20} />,
+          },
+          {
+            label: 'Settings',
+            path: '/admin/settings',
+            icon: <Settings size={20} />,
+          },
+        ];
+
+      default:
+        return [];
+    }
+  };
+
+  const menuItems = getMenuItems();
+
+  return (
+    <>
+      <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="sidebar-close">
+          <button onClick={() => setIsOpen(false)}>
+            <X size={24} />
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => setIsOpen(false)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+
+      <button
+        className="sidebar-toggle"
+        onClick={() => setIsOpen(!isOpen)}
+        title="Toggle menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </>
+  );
+};
+
+export default Sidebar;
