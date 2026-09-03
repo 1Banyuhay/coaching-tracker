@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,11 +8,60 @@ import './Auth.css';
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+
+  // Redirect to dashboard when profile loads after login
+  useEffect(() => {
+    if (justLoggedIn && profile) {
+      console.log('Profile loaded, redirecting to dashboard');
+      navigate('/');
+    }
+  }, [profile, justLoggedIn, navigate]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { data, error } = await authService.login(email, password);
+
+      if (error) {
+        console.error('Login error:', error);
+        setError(error.message || 'Login failed');
+git add src/components/Auth/LoginForm.js
+git commit -m "Fix: use profile loading to trigger dashboard redirect"
+git push origin main
+cat > src/components/Auth/LoginForm.js << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
+import { Mail, Lock, LogIn } from 'lucide-react';
+import './Auth.css';
+
+const LoginForm = () => {
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+
+  // Redirect to dashboard when profile loads after login
+  useEffect(() => {
+    if (justLoggedIn && profile) {
+      console.log('Profile loaded, redirecting to dashboard');
+      navigate('/');
+    }
+  }, [profile, justLoggedIn, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,14 +79,8 @@ const LoginForm = () => {
         return;
       }
 
-      console.log('Login successful:', data);
-      console.log('Redirecting to dashboard...');
-      
-      // Wait a moment for auth state to propagate
-      setTimeout(() => {
-        navigate('/');
-      }, 500);
-      
+      console.log('Login successful, waiting for profile...');
+      setJustLoggedIn(true);
       toast.success('Welcome back!');
     } catch (err) {
       console.error('Signin caught error:', err);
