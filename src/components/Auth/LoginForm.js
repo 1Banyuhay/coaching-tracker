@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { Mail, Lock, LogIn } from 'lucide-react';
 import './Auth.css';
 
 const LoginForm = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,17 +26,23 @@ const LoginForm = () => {
         console.error('Login error:', error);
         setError(error.message || 'Login failed');
         toast.error('Login failed');
+        setLoading(false);
         return;
       }
 
       console.log('Login successful:', data);
+      console.log('Redirecting to dashboard...');
+      
+      // Wait a moment for auth state to propagate
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
+      
       toast.success('Welcome back!');
-      navigate('/');
     } catch (err) {
       console.error('Signin caught error:', err);
       setError(err.message || 'An unexpected error occurred');
       toast.error(err.message || 'An unexpected error occurred');
-    } finally {
       setLoading(false);
     }
   };
