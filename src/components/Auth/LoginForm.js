@@ -8,7 +8,7 @@ import './Auth.css';
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,45 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await authService.login(email, password);
+      const { error } = await
+git add src/components/Auth/LoginForm.js
+git commit -m "Fix: remove unused variables"
+git push origin main
+git add src/components/Auth/LoginForm.js
+git commit -m "Fix: remove unused variables"
+git push origin main
+cat > src/components/Auth/LoginForm.js << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
+import { Mail, Lock, LogIn } from 'lucide-react';
+import './Auth.css';
+
+const LoginForm = () => {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+
+  useEffect(() => {
+    if (justLoggedIn && profile) {
+      console.log('Profile loaded, redirecting to dashboard');
+      navigate('/');
+    }
+  }, [profile, justLoggedIn, navigate]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { error } = await authService.login(email, password);
 
       if (error) {
         console.error('Login error:', error);
