@@ -5,55 +5,65 @@ export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
 
-    console.log('=== useAuth useEffect starting ===');
-    
-    // Check if session already exists in storage
-    supabaseClient.auth.getSession().then(({ data }) => {
-      console.log('getSession returned:', data);
-    });
-
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('=== onAuthStateChange fired ===');
-        console.log('Event:', event);
-        console.log('Session:', session);
-
-        if (!mounted) return;
-
-        if (session?.user) {
-          console.log('User found, loading profile...');
+    const initAuth = async () => {
+      try {
+        // First check if there's already a session
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        if (session?.user && mounted) {
           setUser(session.user);
-
-          const { data: profileData, error: profileError } = await supabaseClient
+          // Load profile from database
+          const { data: profileData } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
-
-          console.log('Profile result:', { profileData, profileError });
-
+          
           if (mounted) {
-            if (profileError) {
-              console.error('Profile error:', profileError);
-              setError(profileError.message);
-              setProfile(null);
-            } else {
-              console.log('Profile loaded successfully:', profileData);
-              setProfile(profileData);
-              setError(null);
-            }
+            setProfile(profileData);
+          }
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Initialize auth on mount
+    initAuth();
+
+    // Also listen for auth changes
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        if (session?.user) {
+          setUser(session.user);
+          const { data: profileData } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (mounted) {
+            setProfile(profileData);
             setLoading(false);
           }
         } else {
-          console.log('No session, clearing auth state');
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
         }
       }
     );
@@ -64,11 +74,5 @@ export const useAuth = () => {
     };
   }, []);
 
-  const logout = async () => {
-    await supabaseClient.auth.signOut();
-    setUser(null);
-    setProfile(null);
-  };
-
-  return { user, profile, loading, error, logout };
+  return { user, profile, loading };
 };
