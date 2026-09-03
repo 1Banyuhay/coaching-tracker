@@ -13,8 +13,8 @@ export const useAuth = () => {
 
     const initializeAuth = async () => {
       try {
-        // Set up auth state listener FIRST - this initializes the session
-        const { data: subscription } = authService.onAuthStateChange(async (currentUser) => {
+        // Set up auth state listener with correct destructuring
+        const { data: { subscription }, error: subError } = authService.onAuthStateChange(async (currentUser) => {
           if (!isMounted) return;
           
           setUser(currentUser);
@@ -22,12 +22,11 @@ export const useAuth = () => {
           if (currentUser) {
             try {
               const { data: userProfile } = await userService.getUserProfile(currentUser.id);
-              if (isMounted) {
+              if (isMounted && userProfile) {
                 setProfile(userProfile);
               }
             } catch (err) {
               console.error('Error loading profile:', err);
-              if (isMounted) setError(err);
             }
           } else {
             if (isMounted) setProfile(null);
@@ -36,7 +35,8 @@ export const useAuth = () => {
           if (isMounted) setLoading(false);
         });
 
-        // Cleanup
+        if (subError) throw subError;
+
         return () => {
           isMounted = false;
           if (subscription?.unsubscribe) {
@@ -44,6 +44,7 @@ export const useAuth = () => {
           }
         };
       } catch (err) {
+        console.error('Auth init error:', err);
         if (isMounted) {
           setError(err);
           setLoading(false);
