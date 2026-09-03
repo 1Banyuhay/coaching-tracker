@@ -168,7 +168,7 @@ function App() {
               <Route
                 path="/"
                 element={
-                  role === 'manager' ? (
+                  role === 'manager' || role === 'senior_manager' ? (
                     <Navigate to="/manager/dashboard" replace />
                   ) : role === 'planner' ? (
                     <Navigate to="/planner/dashboard" replace />
