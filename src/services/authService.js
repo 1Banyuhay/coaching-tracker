@@ -15,7 +15,8 @@ export const authService = {
   },
 
   onAuthStateChange: (callback) => {
-    return supabase.auth.onAuthStateChange(callback);
+    const { data } = supabase.auth.onAuthStateChange(callback);
+    return data;
   },
 
   signOut: async () => {
