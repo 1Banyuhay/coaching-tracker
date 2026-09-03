@@ -14,8 +14,11 @@ export const useAuth = () => {
       try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         
+        console.log('Session:', session);
+        
         if (session?.user && mounted) {
           setUser(session.user);
+          console.log('User ID:', session.user.id);
           
           const { data: profileData, error: profileError } = await supabaseClient
             .from('profiles')
@@ -23,11 +26,14 @@ export const useAuth = () => {
             .eq('id', session.user.id)
             .single();
           
+          console.log('Profile query result:', { profileData, profileError });
+          
           if (mounted) {
             if (profileError) {
               console.error('Profile fetch error:', profileError);
               setError(profileError.message);
             } else {
+              console.log('Profile loaded:', profileData);
               setProfile(profileData);
             }
             setLoading(false);
