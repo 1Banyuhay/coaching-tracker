@@ -73,7 +73,7 @@ const ManagerDashboard = () => {
   };
 
   const handleStartCoachingSession = () => {
-    navigate('/manager/coaching-form');
+    navigate('/manager/coaching/start');
   };
 
   if (loading) {
