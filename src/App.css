@@ -9,23 +9,16 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .content-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
-  background-color: #f9fafb;
-}
-
-@media (max-width: 768px) {
-  .content-area {
-    padding: 0;
-  }
-
-  .main-content {
-    flex-direction: column;
-  }
+  background-color: #f5f1ed;
+  width: 100%;
 }
 
 .dashboard-header {
