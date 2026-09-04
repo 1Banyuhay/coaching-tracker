@@ -11,7 +11,8 @@ const ManagerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [dateRange, setDateRange] = useState('MTD');
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sessionsRowsPerPage, setSessionsRowsPerPage] = useState(20);
+  const [teamRowsPerPage, setTeamRowsPerPage] = useState(20);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -54,7 +55,6 @@ const ManagerDashboard = () => {
 
   const generateRowsOptions = (maxRows) => {
     const options = [20, 30, 40, 50, 100];
-    
     if (maxRows > 100) {
       for (let i = 150; i <= maxRows; i += 50) {
         options.push(i);
@@ -63,7 +63,6 @@ const ManagerDashboard = () => {
         options.push(maxRows);
       }
     }
-    
     return options.sort((a, b) => a - b);
   };
 
@@ -71,10 +70,6 @@ const ManagerDashboard = () => {
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return now.toLocaleDateString('en-US', options);
-  };
-
-  const handleMetricClick = (metricType) => {
-    console.log(`Navigating to ${metricType} details`);
   };
 
   const handleStartCoachingSession = () => {
@@ -90,10 +85,10 @@ const ManagerDashboard = () => {
   }
 
   const filteredSessions = filterDataByDateRange(data.sessions);
-  const rowsOptions = generateRowsOptions(Math.max(data.planners?.length || 0, filteredSessions.length));
+  const sessionRowsOptions = generateRowsOptions(Math.max(data.planners?.length || 0, filteredSessions.length));
+  const teamRowsOptions = generateRowsOptions(data.planners?.length || 0);
   const plannersNotCoached = Math.max(0, (data.stats.totalPlanners || 0) - (data.stats.plannersCoached || 0));
-  
-  const managerCoachingPending = data.managerCoachingSessions?.filter(s => s.status === 'pending') || [];
+  const managerCoachingPending = data.managerCoachingSessions || [];
 
   return (
     <div className="manager-dashboard">
@@ -112,7 +107,7 @@ const ManagerDashboard = () => {
             <div className="alert-content">
               <div className="alert-title">Coaching Acknowledgement Required</div>
               <div className="alert-message">
-                You have {managerCoachingPending.length} coaching session{managerCoachingPending.length !== 1 ? 's' : ''} pending acknowledgement from your Senior Manager.
+                You have {managerCoachingPending.length} coaching session{managerCoachingPending.length !== 1 ? 's' : ''} pending acknowledgement.
               </div>
             </div>
           </div>
@@ -123,92 +118,68 @@ const ManagerDashboard = () => {
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-label">Planners on Team</div>
-          <button 
-            onClick={() => handleMetricClick('planners')}
-            className="metric-value-btn"
-          >
-            {data.stats.totalPlanners || 0}
-          </button>
+          <button className="metric-value-btn" onClick={() => console.log('View planners')}>{data.stats.totalPlanners || 0}</button>
           <div className="metric-detail">active development</div>
         </div>
 
         <div className="metric-card metric-success">
           <div className="metric-label">Coaching Sessions {dateRange}</div>
-          <button 
-            onClick={() => handleMetricClick('coaching-sessions')}
-            className="metric-value-btn"
-          >
-            {filteredSessions.length}
-          </button>
+          <button className="metric-value-btn" onClick={() => console.log('View sessions')}>{filteredSessions.length}</button>
           <div className="metric-detail">confirmed & acknowledged</div>
         </div>
 
         <div className={`metric-card ${plannersNotCoached > 0 ? 'metric-alert' : ''}`}>
           <div className="metric-label">Planners Not Yet Coached</div>
-          <button 
-            onClick={() => handleMetricClick('coaching-gaps')}
-            className="metric-value-btn"
-          >
-            {plannersNotCoached}
-          </button>
+          <button className="metric-value-btn" onClick={() => console.log('View coaching gaps')}>{plannersNotCoached}</button>
           <div className="metric-detail">less than 2 confirmed sessions</div>
         </div>
 
         <div className="metric-card metric-success">
           <div className="metric-label">Avg Team Competency</div>
-          <button 
-            onClick={() => handleMetricClick('competency')}
-            className="metric-value-btn"
-          >
-            —
-          </button>
+          <button className="metric-value-btn">—</button>
           <div className="metric-detail">on 1-4 scale</div>
         </div>
       </div>
 
-      {managerCoachingPending.length > 0 && (
-        <div className="card card-highlight">
-          <h2 className="section-title">COACHING FOR YOU FROM SENIOR MANAGER</h2>
+      <div className="card card-highlight">
+        <h2 className="section-title">COACHING FOR YOU FROM SENIOR MANAGER</h2>
 
-          <div className="filter-controls">
-            <div className="filter-group">
-              <label>Show:</label>
-              <select className="filter-select">
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
+        {managerCoachingPending.length > 0 ? (
+          <>
+            <div className="filter-controls">
+              <div className="filter-group">
+                <label>Show:</label>
+                <select value={teamRowsPerPage} onChange={(e) => setTeamRowsPerPage(parseInt(e.target.value))} className="filter-select">
+                  {[10, 20, 50, 100].map(num => <option key={num} value={num}>{num}</option>)}
+                </select>
+              </div>
             </div>
-          </div>
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>From</th>
-                <th>Topic</th>
-                <th>Coaching Date</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {managerCoachingPending.map((session) => (
-                <tr key={session.id}>
-                  <td><strong>{session.from_name || 'Senior Manager'}</strong></td>
-                  <td className="topic-name">{session.topic || 'Leadership Development'}</td>
-                  <td>{formatDate(session.coaching_date)}</td>
-                  <td>
-                    <span className="status-badge status-pending">Pending</span>
-                  </td>
-                  <td>
-                    <button className="action-btn">Review</button>
-                  </td>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>Topic</th>
+                  <th>Coaching Date</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {managerCoachingPending.slice(0, teamRowsPerPage).map((session) => (
+                  <tr key={session.id}>
+                    <td><strong>Senior Manager</strong></td>
+                    <td className="topic-name">{session.topic || 'Leadership Development'}</td>
+                    <td>{formatDate(session.coaching_date)}</td>
+                    <td><span className="status-badge status-pending">{session.status === 'pending' ? 'Pending' : 'Acknowledged'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <div className="no-data">No coaching sessions from your Senior Manager</div>
+        )}
+      </div>
 
       <div className="card">
         <h2 className="section-title">COACHING SESSIONS WITH PLANNERS</h2>
@@ -216,27 +187,16 @@ const ManagerDashboard = () => {
         <div className="filter-controls">
           <div className="filter-group">
             <label>Period:</label>
-            <select 
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="filter-select"
-            >
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="filter-select">
               <option value="MTD">MTD</option>
               <option value="QTD">QTD</option>
               <option value="YTD">YTD</option>
             </select>
           </div>
-
           <div className="filter-group">
             <label>Show:</label>
-            <select 
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(parseInt(e.target.value))}
-              className="filter-select"
-            >
-              {rowsOptions.map(num => (
-                <option key={num} value={num}>{num}</option>
-              ))}
+            <select value={sessionsRowsPerPage} onChange={(e) => setSessionsRowsPerPage(parseInt(e.target.value))} className="filter-select">
+              {sessionRowsOptions.map(num => <option key={num} value={num}>{num}</option>)}
             </select>
           </div>
         </div>
@@ -249,23 +209,15 @@ const ManagerDashboard = () => {
                 <th>Topic</th>
                 <th>Coaching Date</th>
                 <th>Status</th>
-                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredSessions.slice(0, rowsPerPage).map((session) => (
+              {filteredSessions.slice(0, sessionsRowsPerPage).map((session) => (
                 <tr key={session.id}>
                   <td><strong>{session.planner_name || 'Planner'}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
                   <td>{formatDate(session.coaching_date)}</td>
-                  <td>
-                    <span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : 'status-pending'}`}>
-                      {session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="action-btn">View</button>
-                  </td>
+                  <td><span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : 'status-pending'}`}>{session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -274,23 +226,16 @@ const ManagerDashboard = () => {
           <div className="no-data">No coaching sessions in {dateRange}</div>
         )}
 
-        <button className="cta-button" onClick={handleStartCoachingSession}>+ Start New Coaching Session</button>
+        <button className="cta-button" onClick={handleStartCoachingSession}>+ START NEW COACHING SESSION</button>
       </div>
 
       <div className="card">
         <h2 className="section-title">TEAM OVERVIEW</h2>
-
         <div className="filter-controls">
           <div className="filter-group">
             <label>Show:</label>
-            <select 
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(parseInt(e.target.value))}
-              className="filter-select"
-            >
-              {rowsOptions.map(num => (
-                <option key={num} value={num}>{num}</option>
-              ))}
+            <select value={teamRowsPerPage} onChange={(e) => setTeamRowsPerPage(parseInt(e.target.value))} className="filter-select">
+              {teamRowsOptions.map(num => <option key={num} value={num}>{num}</option>)}
             </select>
           </div>
         </div>
@@ -302,20 +247,14 @@ const ManagerDashboard = () => {
                 <th>Planner</th>
                 <th>Status</th>
                 <th>Sessions {dateRange}</th>
-                <th>Last Coached</th>
-                <th>Next Action</th>
               </tr>
             </thead>
             <tbody>
-              {data.planners.slice(0, rowsPerPage).map((planner) => (
+              {data.planners.slice(0, teamRowsPerPage).map((planner) => (
                 <tr key={planner.id}>
                   <td><strong>{planner.first_name} {planner.last_name}</strong></td>
-                  <td>
-                    <span className="status-badge status-coaching">Active Development</span>
-                  </td>
+                  <td><span className="status-badge status-coaching">Active Development</span></td>
                   <td>{filteredSessions.filter(s => s.planner_id === planner.id).length}</td>
-                  <td>—</td>
-                  <td>Schedule coaching session</td>
                 </tr>
               ))}
             </tbody>
