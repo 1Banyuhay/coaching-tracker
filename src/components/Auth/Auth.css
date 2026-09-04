@@ -123,7 +123,8 @@
   font-weight: 500;
 }
 
-.submit-btn {
+.btn-primary,
+.btn-login {
   width: 100%;
   padding: 1.125rem 1.5rem;
   background: linear-gradient(135deg, #a85a2b 0%, #9d5220 100%) !important;
@@ -143,21 +144,25 @@
   margin-top: 0.75rem;
 }
 
-.submit-btn:hover:not(:disabled) {
+.btn-primary:hover:not(:disabled),
+.btn-login:hover:not(:disabled) {
   transform: translateY(-3px);
   box-shadow: 0 10px 25px rgba(168, 90, 43, 0.3);
 }
 
-.submit-btn:active:not(:disabled) {
+.btn-primary:active:not(:disabled),
+.btn-login:active:not(:disabled) {
   transform: translateY(-1px);
 }
 
-.submit-btn:disabled {
+.btn-primary:disabled,
+.btn-login:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.submit-btn svg {
+.btn-primary svg,
+.btn-login svg {
   width: 20px;
   height: 20px;
 }
