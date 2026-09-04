@@ -1,7 +1,3 @@
-/* ============================================
-   APP LAYOUT
-   ============================================ */
-
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -18,36 +14,19 @@
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem 1.5rem;
-  margin-left: 250px;
+  padding: 0;
   background-color: #f9fafb;
-}
-
-/* ============================================
-   RESPONSIVE LAYOUT
-   ============================================ */
-
-@media (max-width: 1024px) {
-  .content-area {
-    margin-left: 200px;
-    padding: 1.5rem 1.25rem;
-  }
 }
 
 @media (max-width: 768px) {
   .content-area {
-    margin-left: 0;
-    padding: 1.5rem 1rem;
+    padding: 0;
   }
 
   .main-content {
     flex-direction: column;
   }
 }
-
-/* ============================================
-   DASHBOARD GRID
-   ============================================ */
 
 .dashboard-header {
   display: flex;
@@ -111,10 +90,6 @@
   color: #ef4444;
 }
 
-/* ============================================
-   TABLES
-   ============================================ */
-
 .table-container {
   background: white;
   border-radius: 0.75rem;
@@ -156,10 +131,6 @@
 .table tbody tr:last-child td {
   border-bottom: none;
 }
-
-/* ============================================
-   MODALS & OVERLAYS
-   ============================================ */
 
 .modal-overlay {
   position: fixed;
@@ -244,10 +215,6 @@
   }
 }
 
-/* ============================================
-   BADGES & TAGS
-   ============================================ */
-
 .badge {
   display: inline-flex;
   align-items: center;
@@ -284,10 +251,6 @@
   background-color: #e5e7eb;
   color: #374151;
 }
-
-/* ============================================
-   RESPONSIVE
-   ============================================ */
 
 @media (max-width: 768px) {
   .dashboard-header {
