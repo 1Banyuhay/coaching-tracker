@@ -70,6 +70,19 @@ export const useAuth = () => {
     };
   }, []);
 
+  const login = async (email, password) => {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  };
+
   const logout = async () => {
     await supabaseClient.auth.signOut();
     setUser(null);
@@ -80,6 +93,7 @@ export const useAuth = () => {
     user,
     profile,
     loading,
+    login,
     isAuthenticated: !!user && !!profile,
     role: profile?.role || null,
     logout
