@@ -34,7 +34,6 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-container">
         <div className="navbar-brand">
-          <h1>Coaching Tracker</h1>
         </div>
 
         <div className="navbar-content">
