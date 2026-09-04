@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './Auth.css';
 
@@ -42,32 +42,26 @@ const LoginForm = () => {
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
             <label>Email Address</label>
-            <div className="input-wrapper">
-              <Mail size={20} className="input-icon" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-                disabled={loading}
-              />
-            </div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              disabled={loading}
+            />
           </div>
 
           <div className="input-group">
             <label>Password</label>
-            <div className="input-wrapper">
-              <Lock size={20} className="input-icon" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                disabled={loading}
-              />
-            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+              disabled={loading}
+            />
           </div>
 
           {error && <div className="error-message">{error}</div>}

@@ -59,25 +59,9 @@
   letter-spacing: 0.08em;
 }
 
-.input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-icon {
-  position: absolute;
-  left: 12px;
-  color: #999;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
 .input-group input {
   width: 100%;
-  padding: 0.875rem 0.875rem 0.875rem 2.75rem;
+  padding: 0.875rem;
   border: 2px solid #d4ccc4;
   border-radius: 8px;
   font-size: 0.95rem;
