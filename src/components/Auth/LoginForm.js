@@ -1,66 +1,50 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../../services/authService';
-import toast from 'react-hot-toast';
+import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn } from 'lucide-react';
+import toast from 'react-hot-toast';
 import './Auth.css';
 
 const LoginForm = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('🔵 FORM SUBMITTED');
-    setError(null);
+    setError('');
     setLoading(true);
 
     try {
-      console.log('🔵 Calling authService.login...');
-      const result = await authService.login(email, password);
-      console.log('🔵 authService.login returned:', result);
-
-      const { error: authError } = result;
-
-      if (authError) {
-        console.log('🔵 Auth error:', authError);
-        setError(authError.message || 'Login failed');
-        toast.error('Login failed');
-        setLoading(false);
-        return;
-      }
-
-      console.log('🔵 Login successful, navigating...');
-      toast.success('Welcome back!');
-      setTimeout(() => {
-        navigate('/');
-      }, 500);
+      await login(email, password);
+      toast.success('Logged in successfully');
+      navigate('/');
     } catch (err) {
-      console.error('🔵 Catch error:', err);
-      setError(err.message || 'An unexpected error occurred');
-      toast.error(err.message || 'An unexpected error occurred');
+      const message = err.message || 'Failed to login';
+      setError(message);
+      toast.error(message);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-header">
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
           <h1>Coaching Tracker</h1>
           <p>Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="input-group">
+            <label>Email Address</label>
             <div className="input-wrapper">
-              <Mail size={18} className="input-icon" />
+              <Mail size={20} className="input-icon" />
               <input
-                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -71,16 +55,15 @@ const LoginForm = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div className="input-group">
+            <label>Password</label>
             <div className="input-wrapper">
-              <Lock size={18} className="input-icon" />
+              <Lock size={20} className="input-icon" />
               <input
-                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 required
                 disabled={loading}
               />
@@ -89,14 +72,13 @@ const LoginForm = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" disabled={loading} className="btn-primary btn-login">
-            <LogIn size={18} />
+          <button type="submit" disabled={loading} className="login-button">
+            <LogIn size={20} />
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="auth-footer">
-          <p className="demo-note">Demo: Use your Supabase credentials to sign in</p>
+        <div className="login-footer">
         </div>
       </div>
     </div>
