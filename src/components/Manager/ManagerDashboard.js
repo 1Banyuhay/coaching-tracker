@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { dashboardService } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
+import { useNavigate } from 'react-router-dom';
 import './ManagerDashboard.css';
 
 const ManagerDashboard = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [dateRange, setDateRange] = useState('MTD');
@@ -73,6 +75,10 @@ const ManagerDashboard = () => {
 
   const handleMetricClick = (metricType) => {
     console.log(`Navigating to ${metricType} details`);
+  };
+
+  const handleStartCoachingSession = () => {
+    navigate('/manager/coaching-form');
   };
 
   if (loading) {
@@ -268,7 +274,7 @@ const ManagerDashboard = () => {
           <div className="no-data">No coaching sessions in {dateRange}</div>
         )}
 
-        <button className="cta-button">+ Start New Coaching Session</button>
+        <button className="cta-button" onClick={handleStartCoachingSession}>+ Start New Coaching Session</button>
       </div>
 
       <div className="card">
