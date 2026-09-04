@@ -12,16 +12,17 @@ const PlannerDashboard = () => {
   const [actionItems, setActionItems] = useState([]);
 
   useEffect(() => {
-    if (profile?.id) loadDashboardData();
+    if (profile?.id) {
+      const loadDashboardData = async () => {
+        const data = await dashboardService.getPlannerDashboard(profile.id);
+        setPendingSessions(data.pendingSessions);
+        setCoachingHistory(data.coachingHistory);
+        setActionItems(data.actionItems);
+        setLoading(false);
+      };
+      loadDashboardData();
+    }
   }, [profile?.id]);
-
-  const loadDashboardData = async () => {
-    const data = await dashboardService.getPlannerDashboard(profile.id);
-    setPendingSessions(data.pendingSessions);
-    setCoachingHistory(data.coachingHistory);
-    setActionItems(data.actionItems);
-    setLoading(false);
-  };
 
   const formatHeaderDate = () => {
     const now = new Date();
@@ -223,7 +224,7 @@ const PlannerDashboard = () => {
               {actionItems.map(item => (
                 <tr key={item.id}>
                   <td><strong>{item.description}</strong></td>
-                  <td>{item.from_topic?.topic || 'General'}</td>
+                  <td>General</td>
                   <td>{formatDate(item.due_date)}</td>
                   <td>
                     <span className={`status-badge status-${item.status}`}>
