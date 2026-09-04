@@ -72,10 +72,6 @@ const ManagerDashboard = () => {
     return now.toLocaleDateString('en-US', options);
   };
 
-  const handleStartCoachingSession = () => {
-    navigate('/manager/coaching/start');
-  };
-
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
@@ -94,7 +90,6 @@ const ManagerDashboard = () => {
     <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
-          <p className="header-subtitle">1SANG BANYUHAY FINANCIAL GROUP</p>
           <h1 className="header-title">COACHING DASHBOARD</h1>
         </div>
         <div className="header-date">{formatHeaderDate()}</div>
@@ -142,7 +137,7 @@ const ManagerDashboard = () => {
       </div>
 
       <div className="card card-highlight">
-        <h2 className="section-title">COACHING FOR YOU FROM SENIOR MANAGER</h2>
+        <h2 className="section-title">COACHING FROM SENIOR MANAGER</h2>
 
         {managerCoachingPending.length > 0 ? (
           <>
@@ -226,7 +221,13 @@ const ManagerDashboard = () => {
           <div className="no-data">No coaching sessions in {dateRange}</div>
         )}
 
-        <button className="cta-button" onClick={handleStartCoachingSession}>+ START NEW COACHING SESSION</button>
+        <button 
+          type="button"
+          className="cta-button" 
+          onClick={() => navigate('/manager/coaching/start')}
+        >
+          + START NEW COACHING SESSION
+        </button>
       </div>
 
       <div className="card">
