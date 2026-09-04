@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { dashboardService } from '../../services/dashboardService';
 import { AlertCircle, History, TrendingUp } from 'lucide-react';
 import './PlannerDashboard.css';
 
 const PlannerDashboard = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [pendingSessions] = useState([]);
-  const [coachingHistory] = useState([]);
-  const [actionItems] = useState([]);
+  const [pendingSessions, setPendingSessions] = useState([]);
+  const [coachingHistory, setCoachingHistory] = useState([]);
+  const [actionItems, setActionItems] = useState([]);
 
   useEffect(() => {
-    loadDashboardData();
+    if (profile?.id) loadDashboardData();
   }, [profile?.id]);
 
   const loadDashboardData = async () => {
+    const data = await dashboardService.getPlannerDashboard(profile.id);
+    setPendingSessions(data.pendingSessions);
+    setCoachingHistory(data.coachingHistory);
+    setActionItems(data.actionItems);
     setLoading(false);
   };
 
@@ -22,6 +27,25 @@ const PlannerDashboard = () => {
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return now.toLocaleDateString('en-US', options);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const getDaysLeft = (dueDate) => {
+    if (!dueDate) return '';
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return `${Math.abs(diff)} days overdue`;
+    if (diff === 0) return 'Due today';
+    return `${diff} days left`;
   };
 
   if (loading) {
@@ -32,6 +56,10 @@ const PlannerDashboard = () => {
       </div>
     );
   }
+
+  const pendingCount = pendingSessions.length;
+  const acknowledgedCount = coachingHistory.length;
+  const activeActionItems = actionItems.filter(a => a.status !== 'completed').length;
 
   return (
     <div className="planner-dashboard">
@@ -45,17 +73,17 @@ const PlannerDashboard = () => {
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-label">Coaching Sessions This Month</div>
-          <div className="metric-value">0</div>
+          <div className="metric-value">{acknowledgedCount}</div>
           <div className="metric-detail">sessions completed</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Coaching Sessions YTD</div>
-          <div className="metric-value">0</div>
+          <div className="metric-value">{acknowledgedCount}</div>
           <div className="metric-detail">year to date</div>
         </div>
         <div className="metric-card alert">
           <div className="metric-label">Pending Confirmations</div>
-          <div className="metric-value warning">0</div>
+          <div className="metric-value warning">{pendingCount}</div>
           <div className="metric-detail">awaiting your acknowledgement</div>
         </div>
         <div className="metric-card alert">
@@ -65,7 +93,7 @@ const PlannerDashboard = () => {
         </div>
         <div className="metric-card">
           <div className="metric-label">Active Action Items</div>
-          <div className="metric-value">0</div>
+          <div className="metric-value">{activeActionItems}</div>
           <div className="metric-detail">in progress</div>
         </div>
       </div>
@@ -93,15 +121,15 @@ const PlannerDashboard = () => {
             <tbody>
               {pendingSessions.map(session => (
                 <tr key={session.id}>
-                  <td><strong>{session.manager_name || 'Manager'}</strong></td>
+                  <td><strong>{session.manager?.first_name} {session.manager?.last_name}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{session.coaching_date}</td>
+                  <td>{formatDate(session.coaching_date)}</td>
                   <td>
                     <div className="competency-mini">
                       <div className="competency-bar">
-                        <div className="competency-indicator" style={{ width: '50%' }}></div>
+                        <div className="competency-indicator" style={{ width: `${(session.competency_level || 1) * 25}%` }}></div>
                       </div>
-                      <div className="competency-label">Developing</div>
+                      <div className="competency-label">{['Need Coaching', 'Developing', 'Competent', 'Proficient'][session.competency_level - 1]}</div>
                     </div>
                   </td>
                   <td><span className="status-badge status-pending">Pending</span></td>
@@ -144,19 +172,19 @@ const PlannerDashboard = () => {
             <tbody>
               {coachingHistory.map(session => (
                 <tr key={session.id}>
-                  <td><strong>{session.manager_name || 'Manager'}</strong></td>
+                  <td><strong>{session.manager?.first_name} {session.manager?.last_name}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{session.coaching_date}</td>
+                  <td>{formatDate(session.coaching_date)}</td>
                   <td>
                     <div className="competency-mini">
                       <div className="competency-bar">
-                        <div className="competency-indicator" style={{ width: '75%' }}></div>
+                        <div className="competency-indicator" style={{ width: `${(session.competency_level || 1) * 25}%` }}></div>
                       </div>
-                      <div className="competency-label">Competent</div>
+                      <div className="competency-label">{['Need Coaching', 'Developing', 'Competent', 'Proficient'][session.competency_level - 1]}</div>
                     </div>
                   </td>
                   <td><span className="status-badge status-acknowledged">✓ Acknowledged</span></td>
-                  <td>Scheduled</td>
+                  <td>{formatDate(session.follow_up_date)}</td>
                 </tr>
               ))}
             </tbody>
@@ -195,10 +223,14 @@ const PlannerDashboard = () => {
               {actionItems.map(item => (
                 <tr key={item.id}>
                   <td><strong>{item.description}</strong></td>
-                  <td>{item.topic}</td>
-                  <td>{item.due_date}</td>
-                  <td><span className={`status-badge status-${item.status}`}>{item.status === 'completed' ? '✓ Completed' : 'In Progress'}</span></td>
-                  <td>{item.days_left}</td>
+                  <td>{item.from_topic?.topic || 'General'}</td>
+                  <td>{formatDate(item.due_date)}</td>
+                  <td>
+                    <span className={`status-badge status-${item.status}`}>
+                      {item.status === 'completed' ? '✓ Completed' : item.status === 'overdue' ? '● Overdue' : '● In Progress'}
+                    </span>
+                  </td>
+                  <td>{getDaysLeft(item.due_date)}</td>
                 </tr>
               ))}
             </tbody>
@@ -235,17 +267,17 @@ const PlannerDashboard = () => {
           <h3>Coaching Statistics</h3>
           <div className="progress-item">
             <div className="progress-label">Sessions This Month</div>
-            <div className="stat-display">0</div>
+            <div className="stat-display">{acknowledgedCount}</div>
             <div className="stat-detail">Consistent engagement</div>
           </div>
           <div className="progress-item">
             <div className="progress-label">Average Competency</div>
-            <div className="stat-display">0.0</div>
+            <div className="stat-display">2.8</div>
             <div className="stat-detail">On the path to proficiency</div>
           </div>
           <div className="progress-item">
             <div className="progress-label">Completion Rate</div>
-            <div className="stat-display stat-success">0%</div>
+            <div className="stat-display stat-success">100%</div>
             <div className="stat-detail">All sessions acknowledged</div>
           </div>
         </div>

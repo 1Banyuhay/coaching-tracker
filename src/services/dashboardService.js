@@ -131,3 +131,137 @@ export const dashboardService = {
     }
   }
 };
+
+  async getPlannerDashboard(plannerId) {
+    try {
+      // Get pending sessions (awaiting acknowledgment)
+      const { data: pendingSessions } = await supabaseClient
+        .from('coaching_sessions')
+        .select(`
+          id,
+          topic,
+          coaching_date,
+          competency_level,
+          status,
+          discussion_notes,
+          manager:profiles!coaching_sessions_manager_id_fkey(first_name, last_name),
+          follow_up_required,
+          follow_up_date
+        `)
+        .eq('planner_id', plannerId)
+        .eq('status', 'pending')
+        .order('coaching_date', { ascending: false });
+
+      // Get coaching history (acknowledged sessions)
+      const { data: coachingHistory } = await supabaseClient
+        .from('coaching_sessions')
+        .select(`
+          id,
+          topic,
+          coaching_date,
+          competency_level,
+          status,
+          planner_acknowledgment_date,
+          planner_acknowledgment_notes,
+          follow_up_date,
+          manager:profiles!coaching_sessions_manager_id_fkey(first_name, last_name)
+        `)
+        .eq('planner_id', plannerId)
+        .eq('status', 'acknowledged')
+        .order('coaching_date', { ascending: false });
+
+      // Get action items
+      const { data: actionItems } = await supabaseClient
+        .from('action_items')
+        .select(`
+          id,
+          description,
+          due_date,
+          status,
+          from_topic:coaching_sessions!action_items_session_id_fkey(topic)
+        `)
+        .eq('assigned_to_id', plannerId)
+        .order('due_date', { ascending: true });
+
+      return {
+        pendingSessions: pendingSessions || [],
+        coachingHistory: coachingHistory || [],
+        actionItems: actionItems || [],
+      };
+    } catch (error) {
+      console.error('Error fetching planner dashboard:', error);
+      return {
+        pendingSessions: [],
+        coachingHistory: [],
+        actionItems: [],
+      };
+    }
+  },
+};
+
+  async getPlannerDashboard(plannerId) {
+    try {
+      // Get pending sessions (awaiting acknowledgment)
+      const { data: pendingSessions } = await supabaseClient
+        .from('coaching_sessions')
+        .select(`
+          id,
+          topic,
+          coaching_date,
+          competency_level,
+          status,
+          discussion_notes,
+          manager:profiles!coaching_sessions_manager_id_fkey(first_name, last_name),
+          follow_up_required,
+          follow_up_date
+        `)
+        .eq('planner_id', plannerId)
+        .eq('status', 'pending')
+        .order('coaching_date', { ascending: false });
+
+      // Get coaching history (acknowledged sessions)
+      const { data: coachingHistory } = await supabaseClient
+        .from('coaching_sessions')
+        .select(`
+          id,
+          topic,
+          coaching_date,
+          competency_level,
+          status,
+          planner_acknowledgment_date,
+          planner_acknowledgment_notes,
+          follow_up_date,
+          manager:profiles!coaching_sessions_manager_id_fkey(first_name, last_name)
+        `)
+        .eq('planner_id', plannerId)
+        .eq('status', 'acknowledged')
+        .order('coaching_date', { ascending: false });
+
+      // Get action items
+      const { data: actionItems } = await supabaseClient
+        .from('action_items')
+        .select(`
+          id,
+          description,
+          due_date,
+          status,
+          from_topic:coaching_sessions!action_items_session_id_fkey(topic)
+        `)
+        .eq('assigned_to_id', plannerId)
+        .order('due_date', { ascending: true });
+
+      return {
+        pendingSessions: pendingSessions || [],
+        coachingHistory: coachingHistory || [],
+        actionItems: actionItems || [],
+      };
+    } catch (error) {
+      console.error('Error fetching planner dashboard:', error);
+      return {
+        pendingSessions: [],
+        coachingHistory: [],
+        actionItems: [],
+      };
+    }
+  },
+};
