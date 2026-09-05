@@ -24,33 +24,43 @@ export async function onRequest(context) {
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { data: user, error } = await supabase
+    const { data: users, error } = await supabase
       .from('coaching_users')
-      .select('id, username, full_name, role, branch, status')
+      .select('id, username, full_name, role, branch, status, password')
       .eq('username', username)
-      .eq('status', 'active')
-      .single();
+      .eq('status', 'active');
 
-    if (error || !user) {
+    if (error) {
+      console.error('Database error:', error);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Database error querying schema' }),
+        { status: 500 }
+      );
+    }
+
+    if (!users || users.length === 0) {
       return new Response(
         JSON.stringify({ success: false, message: 'Invalid username or password' }),
         { status: 401 }
       );
     }
 
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: `${username}@1banyuhay.com`,
-      password: password
-    });
+    const user = users[0];
 
-    if (authError || !authData.session) {
+    if (user.password !== password) {
       return new Response(
         JSON.stringify({ success: false, message: 'Invalid username or password' }),
         { status: 401 }
       );
     }
 
-    const token = authData.session.access_token;
+    const token = btoa(JSON.stringify({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      branch: user.branch,
+      timestamp: Date.now()
+    }));
 
     return new Response(
       JSON.stringify({
