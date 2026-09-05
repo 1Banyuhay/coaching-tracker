@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import './ManagerDashboard.css';
 
 const ManagerDashboard = () => {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -18,7 +18,7 @@ const ManagerDashboard = () => {
     if (!profile?.id) return;
 
     const loadData = async () => {
-      const dashboardData = await dashboardService.getManagerDashboard(profile.id);
+      const dashboardData = await dashboardService.getManagerDashboard(user.id);
       setData(dashboardData);
       setLoading(false);
     };
