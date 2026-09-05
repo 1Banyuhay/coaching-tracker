@@ -82,6 +82,15 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              {/* Senior Manager Routes */}
+              <Route
+                path="/senior-manager/dashboard"
+                element={
+                  <ProtectedRoute requiredRole="senior_manager">
+                    <SeniorManagerDashboard />
+                  </ProtectedRoute>
+                }
+              />
                   </ProtectedRoute>
                 }
               />
