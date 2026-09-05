@@ -204,7 +204,6 @@
   </div>
 
   <script>
-    // Supabase Configuration
     const SUPABASE_URL = 'https://vszfhpbvzzxijcrrnclh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemZocGJ2enp4aWpjcnJuY2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzAzMTEsImV4cCI6MjEwMzgwNjMxMX0.p48DdmF9k4nSOdm6Eeag42yZBO1HKZVin2Bhl_MNQ7Q';
 
@@ -231,7 +230,6 @@
         return;
       }
 
-      // Disable button and show loading
       loginButton.disabled = true;
       spinner.style.display = 'inline-block';
       buttonText.textContent = 'Signing In...';
@@ -241,9 +239,7 @@
         // Query coaching_users table for the user
         const { data: users, error: queryError } = await supabase
           .from('coaching_users')
-          .select('id, username, full_name, role, branch, status, password')
-          .eq('username', username)
-          .eq('status', 'active');
+          .select('id, username, full_name, role, branch, status, password');
 
         if (queryError) {
           console.error('Query error:', queryError);
@@ -252,13 +248,14 @@
           return;
         }
 
-        if (!users || users.length === 0) {
+        // Find matching user
+        const user = users?.find(u => u.username === username && u.status === 'active');
+
+        if (!user) {
           showError('Invalid username or password');
           resetButton();
           return;
         }
-
-        const user = users[0];
 
         // Verify password
         if (user.password !== password) {
@@ -268,7 +265,6 @@
         }
 
         // Successful login!
-        // Store user info in localStorage
         const userSession = {
           id: user.id,
           username: user.username,
@@ -280,10 +276,8 @@
 
         localStorage.setItem('coachingUser', JSON.stringify(userSession));
 
-        // Show success
         buttonText.textContent = 'Success!';
         
-        // Redirect to dashboard after 1 second
         setTimeout(() => {
           window.location.href = '/coaching';
         }, 1000);
