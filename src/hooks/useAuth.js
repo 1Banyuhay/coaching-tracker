@@ -14,20 +14,41 @@ export const useAuth = () => {
   }, []);
 
   const login = async (username, password) => {
-    const { data, error } = await supabaseClient
-      .from('coaching_users')
-      .select('*')
-      .eq('username', username);
+    console.log('Login called with username:', username);
+    try {
+      const { data, error } = await supabaseClient
+        .from('coaching_users')
+        .select('*')
+        .eq('username', username);
 
-    if (error) throw error;
-    if (!data || data.length === 0) throw new Error('User not found');
+      console.log('Query result:', { data, error });
 
-    const user = data[0];
-    if (user.password !== password) throw new Error('Invalid password');
+      if (error) {
+        console.error('Query error:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No users found');
+        throw new Error('User not found');
+      }
 
-    setUser(user);
-    localStorage.setItem('coachingUser', JSON.stringify(user));
-    return { user };
+      const user = data[0];
+      console.log('User found:', user.username);
+      
+      if (user.password !== password) {
+        console.log('Password mismatch');
+        throw new Error('Invalid password');
+      }
+
+      console.log('Login successful!');
+      setUser(user);
+      localStorage.setItem('coachingUser', JSON.stringify(user));
+      return { user };
+    } catch (err) {
+      console.error('Login error caught:', err.message);
+      throw err;
+    }
   };
 
   const logout = async () => {
