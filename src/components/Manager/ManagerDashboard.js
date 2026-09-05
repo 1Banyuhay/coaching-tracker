@@ -1,9 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService } from '../../services/dashboardService';
+import { dashboardService, acknowledgeCoachingRecord } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import SummaryModal from '../Layout/SummaryModal';
 import './ManagerDashboard.css';
+
+const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
+
+const competencyLabel = (level) => {
+  if (!level) return '—';
+  const rounded = Math.round(level);
+  return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
+};
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
@@ -12,29 +22,29 @@ const ManagerDashboard = () => {
   const [data, setData] = useState(null);
   const [dateRange, setDateRange] = useState('MTD');
   const [sessionsRowsPerPage, setSessionsRowsPerPage] = useState(20);
-  const [teamRowsPerPage, setTeamRowsPerPage] = useState(20);
+  const [activeCard, setActiveCard] = useState(null);
+  const [acknowledging, setAcknowledging] = useState(null);
+
+  const loadData = useCallback(async () => {
+    if (!user?.id) return;
+    const dashboardData = await dashboardService.getManagerDashboard(user.id);
+    setData(dashboardData);
+    setLoading(false);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
-
-    const loadData = async () => {
-      const dashboardData = await dashboardService.getManagerDashboard(user.id);
-      setData(dashboardData);
-      setLoading(false);
-    };
-
     loadData();
-  }, [user?.id]);
+  }, [loadData]);
 
   const filterDataByDateRange = (sessions) => {
     if (!sessions) return [];
-    
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentQuarter = Math.floor(currentMonth / 3);
 
-    return sessions.filter(session => {
+    return sessions.filter((session) => {
       const sessionDate = new Date(session.created_at);
       const sessionYear = sessionDate.getFullYear();
       const sessionMonth = sessionDate.getMonth();
@@ -72,6 +82,21 @@ const ManagerDashboard = () => {
     return now.toLocaleDateString('en-US', options);
   };
 
+  const handleAcknowledge = async (recordId) => {
+    setAcknowledging(recordId);
+    try {
+      await acknowledgeCoachingRecord(recordId);
+      toast.success('Coaching acknowledged');
+      await loadData();
+      setActiveCard(null);
+    } catch (error) {
+      console.error('Error acknowledging coaching record:', error);
+      toast.error('Could not acknowledge that session');
+    } finally {
+      setAcknowledging(null);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
@@ -81,10 +106,100 @@ const ManagerDashboard = () => {
   }
 
   const filteredSessions = filterDataByDateRange(data.sessions);
-  const sessionRowsOptions = generateRowsOptions(Math.max(data.planners?.length || 0, filteredSessions.length));
-  const teamRowsOptions = generateRowsOptions(data.planners?.length || 0);
-  const plannersNotCoached = Math.max(0, (data.stats.totalPlanners || 0) - (data.stats.plannersCoached || 0));
-  const managerCoachingPending = data.managerCoachingSessions || [];
+  const sessionRowsOptions = generateRowsOptions(filteredSessions.length);
+  const stats = data.stats || {};
+  const buckets = data.buckets || { needCoaching: [], acknowledged: [], completed: [] };
+
+  const plannerRows = (entries) =>
+    entries.map((entry) => ({
+      id: entry.planner.id,
+      name: entry.planner.full_name,
+      branch: entry.planner.branch || '—',
+      sessions: entry.records.length,
+    }));
+
+  const plannerColumns = [
+    { key: 'name', label: 'Planner' },
+    { key: 'sessions', label: 'Sessions' },
+  ];
+
+  const needActionRows = (data.needActionSessions || []).map((s) => ({
+    id: s.id,
+    from: s.coach_name,
+    topic: s.topic || 'General',
+    date: formatDate(s.created_at),
+    status: s.status,
+  }));
+
+  const modals = {
+    needAction: {
+      title: 'Need Action',
+      subtitle: 'Coaching your Senior Manager sent you, waiting on your acknowledgement',
+      columns: [
+        { key: 'from', label: 'From' },
+        { key: 'topic', label: 'Topic' },
+        { key: 'date', label: 'Date' },
+        {
+          key: 'action',
+          label: '',
+          render: (row) => (
+            <button
+              className="ack-btn"
+              disabled={acknowledging === row.id}
+              onClick={() => handleAcknowledge(row.id)}
+            >
+              {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
+            </button>
+          ),
+        },
+      ],
+      rows: needActionRows,
+      emptyMessage: 'Nothing waiting on you',
+    },
+    needCoaching: {
+      title: 'Need Coaching',
+      subtitle: 'Planners with 0-1 coaching session so far',
+      columns: plannerColumns,
+      rows: plannerRows(buckets.needCoaching),
+      emptyMessage: 'Everyone on your team has at least 2 sessions',
+    },
+    acknowledged: {
+      title: 'Acknowledged',
+      subtitle: 'Planners actively being coached (2+ sessions, cycle not yet complete)',
+      columns: plannerColumns,
+      rows: plannerRows(buckets.acknowledged),
+      emptyMessage: 'No planners in this group yet',
+    },
+    completed: {
+      title: 'Completed',
+      subtitle: 'Planners who finished a full coaching cycle',
+      columns: plannerColumns,
+      rows: plannerRows(buckets.completed),
+      emptyMessage: 'No completed cycles yet',
+    },
+    competency: {
+      title: 'Team Competency',
+      subtitle: 'Every rated coaching session behind your team average',
+      columns: [
+        { key: 'planner_name', label: 'Planner' },
+        { key: 'topic', label: 'Topic' },
+        { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
+      ],
+      rows: data.sessions.filter((s) => s.competency_level),
+      emptyMessage: 'No competency ratings recorded yet',
+    },
+    totalPlanners: {
+      title: 'Total Planners in Your Team',
+      subtitle: 'Everyone you have coached at least once',
+      columns: [{ key: 'name', label: 'Planner' }, { key: 'branch', label: 'Branch' }],
+      rows: [...buckets.needCoaching, ...buckets.acknowledged, ...buckets.completed].map((e) => ({
+        id: e.planner.id,
+        name: e.planner.full_name,
+        branch: e.planner.branch || '—',
+      })),
+      emptyMessage: 'No planners coached yet',
+    },
+  };
 
   return (
     <div className="manager-dashboard">
@@ -95,85 +210,54 @@ const ManagerDashboard = () => {
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
-      {managerCoachingPending.length > 0 && (
-        <div className="alert-card">
-          <div className="alert-header">
-            <div className="alert-icon">!</div>
-            <div className="alert-content">
-              <div className="alert-title">Coaching Acknowledgement Required</div>
-              <div className="alert-message">
-                You have {managerCoachingPending.length} coaching session{managerCoachingPending.length !== 1 ? 's' : ''} pending acknowledgement.
-              </div>
-            </div>
-          </div>
-          <button className="alert-action-btn">Review Now</button>
-        </div>
-      )}
-
       <div className="metrics-grid">
+        <div className={`metric-card ${stats.needAction > 0 ? 'metric-alert' : ''}`}>
+          <div className="metric-label">Need Action</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('needAction')}>
+            {stats.needAction || 0}
+          </button>
+          <div className="metric-detail">from your Senior Manager</div>
+        </div>
+
         <div className="metric-card">
-          <div className="metric-label">Planners on Team</div>
-          <button className="metric-value-btn" onClick={() => console.log('View planners')}>{data.stats.totalPlanners || 0}</button>
-          <div className="metric-detail">active development</div>
+          <div className="metric-label">Need Coaching</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('needCoaching')}>
+            {stats.needCoaching || 0}
+          </button>
+          <div className="metric-detail">planners with 0-1 session</div>
         </div>
 
         <div className="metric-card metric-success">
-          <div className="metric-label">Coaching Sessions {dateRange}</div>
-          <button className="metric-value-btn" onClick={() => console.log('View sessions')}>{filteredSessions.length}</button>
-          <div className="metric-detail">confirmed & acknowledged</div>
-        </div>
-
-        <div className={`metric-card ${plannersNotCoached > 0 ? 'metric-alert' : ''}`}>
-          <div className="metric-label">Planners Not Yet Coached</div>
-          <button className="metric-value-btn" onClick={() => console.log('View coaching gaps')}>{plannersNotCoached}</button>
-          <div className="metric-detail">less than 2 confirmed sessions</div>
+          <div className="metric-label">Acknowledged</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('acknowledged')}>
+            {stats.acknowledged || 0}
+          </button>
+          <div className="metric-detail">planners acknowledged</div>
         </div>
 
         <div className="metric-card metric-success">
-          <div className="metric-label">Avg Team Competency</div>
-          <button className="metric-value-btn">—</button>
-          <div className="metric-detail">on 1-4 scale</div>
+          <div className="metric-label">Completed</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('completed')}>
+            {stats.completed || 0}
+          </button>
+          <div className="metric-detail">planners, full cycle</div>
         </div>
-      </div>
 
-      <div className="card card-highlight">
-        <h2 className="section-title">COACHING FROM SENIOR MANAGER</h2>
+        <div className="metric-card">
+          <div className="metric-label">Competency</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('competency')}>
+            {stats.avgCompetency ? stats.avgCompetency.toFixed(1) : '—'}
+          </button>
+          <div className="metric-detail">team average, 1-4 scale</div>
+        </div>
 
-        {managerCoachingPending.length > 0 ? (
-          <>
-            <div className="filter-controls">
-              <div className="filter-group">
-                <label>Show:</label>
-                <select value={teamRowsPerPage} onChange={(e) => setTeamRowsPerPage(parseInt(e.target.value))} className="filter-select">
-                  {[10, 20, 50, 100].map(num => <option key={num} value={num}>{num}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>From</th>
-                  <th>Topic</th>
-                  <th>Coaching Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {managerCoachingPending.slice(0, teamRowsPerPage).map((session) => (
-                  <tr key={session.id}>
-                    <td><strong>Senior Manager</strong></td>
-                    <td className="topic-name">{session.topic || 'Leadership Development'}</td>
-                    <td>{formatDate(session.created_at)}</td>
-                    <td><span className="status-badge status-pending">{session.status === 'pending' ? 'Pending' : 'Acknowledged'}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        ) : (
-          <div className="no-data">No coaching sessions from your Senior Manager</div>
-        )}
+        <div className="metric-card">
+          <div className="metric-label">Total Planners</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('totalPlanners')}>
+            {stats.totalPlanners || 0}
+          </button>
+          <div className="metric-detail">in your team</div>
+        </div>
       </div>
 
       <div className="card">
@@ -190,8 +274,14 @@ const ManagerDashboard = () => {
           </div>
           <div className="filter-group">
             <label>Show:</label>
-            <select value={sessionsRowsPerPage} onChange={(e) => setSessionsRowsPerPage(parseInt(e.target.value))} className="filter-select">
-              {sessionRowsOptions.map(num => <option key={num} value={num}>{num}</option>)}
+            <select
+              value={sessionsRowsPerPage}
+              onChange={(e) => setSessionsRowsPerPage(parseInt(e.target.value, 10))}
+              className="filter-select"
+            >
+              {sessionRowsOptions.map((num) => (
+                <option key={num} value={num}>{num}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -209,10 +299,14 @@ const ManagerDashboard = () => {
             <tbody>
               {filteredSessions.slice(0, sessionsRowsPerPage).map((session) => (
                 <tr key={session.id}>
-                  <td><strong>{session.planner_name || 'Planner'}</strong></td>
+                  <td><strong>{session.planner_name}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
                   <td>{formatDate(session.created_at)}</td>
-                  <td><span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : 'status-pending'}`}>{session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}</span></td>
+                  <td>
+                    <span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : session.status === 'coaching_complete' ? 'status-coaching' : 'status-pending'}`}>
+                      {session.status === 'coaching_complete' ? 'Completed' : session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -221,49 +315,21 @@ const ManagerDashboard = () => {
           <div className="no-data">No coaching sessions in {dateRange}</div>
         )}
 
-        <button 
-          type="button"
-          className="cta-button" 
-          onClick={() => navigate('/manager/coaching/start')}
-        >
+        <button type="button" className="cta-button" onClick={() => navigate('/manager/coaching/start')}>
           + START NEW COACHING SESSION
         </button>
       </div>
 
-      <div className="card">
-        <h2 className="section-title">TEAM OVERVIEW</h2>
-        <div className="filter-controls">
-          <div className="filter-group">
-            <label>Show:</label>
-            <select value={teamRowsPerPage} onChange={(e) => setTeamRowsPerPage(parseInt(e.target.value))} className="filter-select">
-              {teamRowsOptions.map(num => <option key={num} value={num}>{num}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {data.planners && data.planners.length > 0 ? (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Planner</th>
-                <th>Status</th>
-                <th>Sessions {dateRange}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.planners.slice(0, teamRowsPerPage).map((planner) => (
-                <tr key={planner.id}>
-                  <td><strong>{planner.first_name} {planner.last_name}</strong></td>
-                  <td><span className="status-badge status-coaching">Active Development</span></td>
-                  <td>{filteredSessions.filter(s => s.planner_id === planner.id).length}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="no-data">No planners on team yet</div>
-        )}
-      </div>
+      {activeCard && (
+        <SummaryModal
+          title={modals[activeCard].title}
+          subtitle={modals[activeCard].subtitle}
+          columns={modals[activeCard].columns}
+          rows={modals[activeCard].rows}
+          emptyMessage={modals[activeCard].emptyMessage}
+          onClose={() => setActiveCard(null)}
+        />
+      )}
     </div>
   );
 };

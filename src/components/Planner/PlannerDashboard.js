@@ -1,28 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService } from '../../services/dashboardService';
-import { AlertCircle, History, TrendingUp } from 'lucide-react';
-import './PlannerDashboard.css';
+import { dashboardService, acknowledgeCoachingRecord } from '../../services/dashboardService';
+import { formatDate } from '../../utils/dateHelpers';
+import toast from 'react-hot-toast';
+import SummaryModal from '../Layout/SummaryModal';
+import '../Manager/ManagerDashboard.css';
+
+const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
+
+const competencyLabel = (level) => {
+  if (!level) return '—';
+  const rounded = Math.round(level);
+  return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
+};
+
+const statusBadge = (status) => {
+  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+  return <span className="status-badge status-pending">Pending</span>;
+};
 
 const PlannerDashboard = () => {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [pendingSessions, setPendingSessions] = useState([]);
-  const [coachingHistory, setCoachingHistory] = useState([]);
-  const [actionItems, setActionItems] = useState([]);
+  const [data, setData] = useState(null);
+  const [activeCard, setActiveCard] = useState(null);
+  const [acknowledging, setAcknowledging] = useState(null);
+
+  const loadData = useCallback(async () => {
+    if (!user?.id) return;
+    const dashboardData = await dashboardService.getPlannerDashboard(user.id);
+    setData(dashboardData);
+    setLoading(false);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (profile?.id) {
-      const loadDashboardData = async () => {
-        const data = await dashboardService.getPlannerDashboard(profile.id);
-        setPendingSessions(data.pendingSessions);
-        setCoachingHistory(data.coachingHistory);
-        setActionItems(data.actionItems);
-        setLoading(false);
-      };
-      loadDashboardData();
-    }
-  }, [profile?.id]);
+    loadData();
+  }, [loadData]);
 
   const formatHeaderDate = () => {
     const now = new Date();
@@ -30,259 +44,173 @@ const PlannerDashboard = () => {
     return now.toLocaleDateString('en-US', options);
   };
 
-  const formatDate = (date) => {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-
-  const getDaysLeft = (dueDate) => {
-    if (!dueDate) return '';
-    const today = new Date();
-    const due = new Date(dueDate);
-    const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return `${Math.abs(diff)} days overdue`;
-    if (diff === 0) return 'Due today';
-    return `${diff} days left`;
+  const handleAcknowledge = async (recordId) => {
+    setAcknowledging(recordId);
+    try {
+      await acknowledgeCoachingRecord(recordId);
+      toast.success('Coaching acknowledged');
+      await loadData();
+      setActiveCard(null);
+    } catch (error) {
+      console.error('Error acknowledging coaching record:', error);
+      toast.error('Could not acknowledge that session');
+    } finally {
+      setAcknowledging(null);
+    }
   };
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading your coaching dashboard...</p>
-      </div>
-    );
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
 
-  const pendingCount = pendingSessions.length;
-  const acknowledgedCount = coachingHistory.length;
-  const activeActionItems = actionItems.filter(a => a.status !== 'completed').length;
+  if (!data) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>No data</div>;
+  }
+
+  const stats = data.stats || {};
+  const records = data.records || [];
+
+  const sessionColumns = [
+    { key: 'coach_name', label: 'From' },
+    { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
+    { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
+  ];
+
+  const modals = {
+    needAction: {
+      title: 'Need Action',
+      subtitle: 'Coaching from your Senior Manager or Manager, waiting on your acknowledgement',
+      columns: [
+        ...sessionColumns,
+        {
+          key: 'action',
+          label: '',
+          render: (row) => (
+            <button
+              className="ack-btn"
+              disabled={acknowledging === row.id}
+              onClick={() => handleAcknowledge(row.id)}
+            >
+              {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
+            </button>
+          ),
+        },
+      ],
+      rows: data.needActionSessions || [],
+      emptyMessage: 'Nothing waiting on you',
+    },
+    acknowledged: {
+      title: 'Acknowledged',
+      subtitle: 'Coaching sessions you have acknowledged',
+      columns: sessionColumns,
+      rows: data.acknowledgedSessions || [],
+      emptyMessage: 'No acknowledged sessions yet',
+    },
+    completed: {
+      title: 'Completed',
+      subtitle: 'Coaching sessions that finished a full cycle',
+      columns: sessionColumns,
+      rows: data.completedSessions || [],
+      emptyMessage: 'No completed sessions yet',
+    },
+    competency: {
+      title: 'Your Competency',
+      subtitle: 'Every rated coaching session behind your average',
+      columns: [
+        { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
+        { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
+      ],
+      rows: records.filter((r) => r.competency_level),
+      emptyMessage: 'No competency ratings recorded yet',
+    },
+  };
 
   return (
-    <div className="planner-dashboard">
+    <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
-          <h1>COACHING DASHBOARD</h1>
+          <h1 className="header-title">COACHING DASHBOARD</h1>
         </div>
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
       <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-label">Coaching Sessions This Month</div>
-          <div className="metric-value">{acknowledgedCount}</div>
-          <div className="metric-detail">sessions completed</div>
+        <div className={`metric-card ${stats.needAction > 0 ? 'metric-alert' : ''}`}>
+          <div className="metric-label">Need Action</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('needAction')}>
+            {stats.needAction || 0}
+          </button>
+          <div className="metric-detail">from Senior Manager or Manager</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-label">Coaching Sessions YTD</div>
-          <div className="metric-value">{acknowledgedCount}</div>
-          <div className="metric-detail">year to date</div>
-        </div>
-        <div className="metric-card alert">
-          <div className="metric-label">Pending Confirmations</div>
-          <div className="metric-value warning">{pendingCount}</div>
-          <div className="metric-detail">awaiting your acknowledgement</div>
-        </div>
-        <div className="metric-card alert">
-          <div className="metric-label">Follow-ups Due</div>
-          <div className="metric-value warning">0</div>
-          <div className="metric-detail">scheduled follow-ups</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Active Action Items</div>
-          <div className="metric-value">{activeActionItems}</div>
-          <div className="metric-detail">in progress</div>
-        </div>
-      </div>
 
-      <div className="card">
-        <h2 className="section-title">PENDING CONFIRMATIONS</h2>
-        {pendingSessions.length === 0 ? (
-          <div className="empty-state">
-            <AlertCircle size={48} />
-            <p className="empty-text">No pending confirmations</p>
-            <p className="empty-subtext">All your coaching sessions are confirmed</p>
-          </div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Manager</th>
-                <th>Topic</th>
-                <th>Coaching Date</th>
-                <th>Competency Level</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingSessions.map(session => (
-                <tr key={session.id}>
-                  <td><strong>{session.manager?.first_name} {session.manager?.last_name}</strong></td>
-                  <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.coaching_date)}</td>
-                  <td>
-                    <div className="competency-mini">
-                      <div className="competency-bar">
-                        <div className="competency-indicator" style={{ width: `${(session.competency_level || 1) * 25}%` }}></div>
-                      </div>
-                      <div className="competency-label">{['Need Coaching', 'Developing', 'Competent', 'Proficient'][session.competency_level - 1]}</div>
-                    </div>
-                  </td>
-                  <td><span className="status-badge status-pending">Pending</span></td>
-                  <td><button className="action-btn">Review</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="metric-card metric-success">
+          <div className="metric-label">Acknowledged</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('acknowledged')}>
+            {stats.acknowledged || 0}
+          </button>
+          <div className="metric-detail">sessions acknowledged</div>
+        </div>
+
+        <div className="metric-card metric-success">
+          <div className="metric-label">Completed</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('completed')}>
+            {stats.completed || 0}
+          </button>
+          <div className="metric-detail">full cycle sessions</div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-label">Competency</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('competency')}>
+            {stats.avgCompetency ? stats.avgCompetency.toFixed(1) : '—'}
+          </button>
+          <div className="metric-detail">your average, 1-4 scale</div>
+        </div>
       </div>
 
       <div className="card">
         <h2 className="section-title">YOUR COACHING HISTORY</h2>
-        <div className="filter-controls">
-          <label htmlFor="history-rows">Show:</label>
-          <select id="history-rows" defaultValue="50">
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        {coachingHistory.length === 0 ? (
-          <div className="empty-state">
-            <History size={48} />
-            <p className="empty-text">No coaching history yet</p>
-            <p className="empty-subtext">Your coaching sessions will appear here once acknowledged</p>
-          </div>
-        ) : (
-          <table>
+
+        {records.length > 0 ? (
+          <table className="data-table">
             <thead>
               <tr>
-                <th>Manager</th>
+                <th>From</th>
                 <th>Topic</th>
                 <th>Coaching Date</th>
-                <th>Competency Level</th>
-                <th>Acknowledged</th>
+                <th>Competency</th>
+                <th>Status</th>
                 <th>Follow-Up</th>
               </tr>
             </thead>
             <tbody>
-              {coachingHistory.map(session => (
+              {records.map((session) => (
                 <tr key={session.id}>
-                  <td><strong>{session.manager?.first_name} {session.manager?.last_name}</strong></td>
+                  <td><strong>{session.coach_name}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.coaching_date)}</td>
-                  <td>
-                    <div className="competency-mini">
-                      <div className="competency-bar">
-                        <div className="competency-indicator" style={{ width: `${(session.competency_level || 1) * 25}%` }}></div>
-                      </div>
-                      <div className="competency-label">{['Need Coaching', 'Developing', 'Competent', 'Proficient'][session.competency_level - 1]}</div>
-                    </div>
-                  </td>
-                  <td><span className="status-badge status-acknowledged">✓ Acknowledged</span></td>
-                  <td>{formatDate(session.follow_up_date)}</td>
+                  <td>{formatDate(session.created_at)}</td>
+                  <td>{competencyLabel(session.competency_level)}</td>
+                  <td>{statusBadge(session.status)}</td>
+                  <td>{session.follow_up_date ? formatDate(session.follow_up_date) : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">YOUR ACTION ITEMS</h2>
-        <div className="filter-controls">
-          <label htmlFor="action-rows">Show:</label>
-          <select id="action-rows" defaultValue="50">
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        {actionItems.length === 0 ? (
-          <div className="empty-state">
-            <TrendingUp size={48} />
-            <p className="empty-text">No action items assigned</p>
-            <p className="empty-subtext">Action items from coaching sessions will appear here</p>
-          </div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Action Item</th>
-                <th>From Topic</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Days Left</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actionItems.map(item => (
-                <tr key={item.id}>
-                  <td><strong>{item.description}</strong></td>
-                  <td>General</td>
-                  <td>{formatDate(item.due_date)}</td>
-                  <td>
-                    <span className={`status-badge status-${item.status}`}>
-                      {item.status === 'completed' ? '✓ Completed' : item.status === 'overdue' ? '● Overdue' : '● In Progress'}
-                    </span>
-                  </td>
-                  <td>{getDaysLeft(item.due_date)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="no-data">No coaching sessions yet</div>
         )}
       </div>
 
-      <div className="profile-section">
-        <div className="profile-card">
-          <h3>Your Competency Progression</h3>
-          <div className="progress-item">
-            <div className="progress-label">Product Positioning</div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '60%' }}></div>
-            </div>
-            <div className="progress-status">Developing → Competent</div>
-          </div>
-          <div className="progress-item">
-            <div className="progress-label">FNA / FBB</div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '75%' }}></div>
-            </div>
-            <div className="progress-status">Competent</div>
-          </div>
-          <div className="progress-item">
-            <div className="progress-label">Client Conversation</div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '100%' }}></div>
-            </div>
-            <div className="progress-status">Proficient</div>
-          </div>
-        </div>
-        <div className="profile-card">
-          <h3>Coaching Statistics</h3>
-          <div className="progress-item">
-            <div className="progress-label">Sessions This Month</div>
-            <div className="stat-display">{acknowledgedCount}</div>
-            <div className="stat-detail">Consistent engagement</div>
-          </div>
-          <div className="progress-item">
-            <div className="progress-label">Average Competency</div>
-            <div className="stat-display">2.8</div>
-            <div className="stat-detail">On the path to proficiency</div>
-          </div>
-          <div className="progress-item">
-            <div className="progress-label">Completion Rate</div>
-            <div className="stat-display stat-success">100%</div>
-            <div className="stat-detail">All sessions acknowledged</div>
-          </div>
-        </div>
-      </div>
+      {activeCard && (
+        <SummaryModal
+          title={modals[activeCard].title}
+          subtitle={modals[activeCard].subtitle}
+          columns={modals[activeCard].columns}
+          rows={modals[activeCard].rows}
+          emptyMessage={modals[activeCard].emptyMessage}
+          onClose={() => setActiveCard(null)}
+        />
+      )}
     </div>
   );
 };
