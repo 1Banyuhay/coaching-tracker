@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -11,7 +10,6 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,14 +17,11 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      console.log('Form submit: calling login()');
       await login(username, password);
-      console.log('Login returned, calling navigate()');
       toast.success('Logged in successfully');
-      navigate('/');
-      console.log('Navigate called');
+      // Reload page to re-check authentication
+      window.location.href = '/';
     } catch (err) {
-      console.error('LoginForm error:', err);
       const message = err.message || 'Failed to login';
       setError(message);
       toast.error(message);
