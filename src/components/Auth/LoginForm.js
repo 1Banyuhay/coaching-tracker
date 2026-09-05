@@ -17,10 +17,21 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      await login(username, password);
+      const result = await login(username, password);
+      const user = result.user;
+      
       toast.success('Logged in successfully');
-      // Reload page to re-check authentication
-      window.location.href = '/';
+      
+      // Role-based redirect
+      if (user.role === 'senior_manager') {
+        window.location.href = '/senior-manager/dashboard';
+      } else if (user.role === 'manager') {
+        window.location.href = '/manager/dashboard';
+      } else if (user.role === 'planner') {
+        window.location.href = '/planner/dashboard';
+      } else {
+        window.location.href = '/';
+      }
     } catch (err) {
       const message = err.message || 'Failed to login';
       setError(message);
