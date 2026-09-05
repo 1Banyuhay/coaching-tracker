@@ -16,8 +16,6 @@ const SeniorManagerDashboard = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-  const isSeniorManager = user?.role === "senior_manager";
-  const isManager = user?.role === "manager";
 
     const loadData = async () => {
       const dashboardData = await dashboardService.getManagerDashboard(user.id);
