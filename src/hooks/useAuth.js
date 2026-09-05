@@ -3,99 +3,44 @@ import { supabaseClient } from '../config/supabase';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        
-        if (session?.user && mounted) {
-          setUser(session.user);
-          const { data: profileData } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (mounted) {
-            setProfile(profileData);
-          }
-        }
-        
-        if (mounted) {
-          setLoading(false);
-        }
-      } catch (err) {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    checkAuth();
-
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          const { data: profileData } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (mounted) {
-            setProfile(profileData);
-            setLoading(false);
-          }
-        } else {
-          if (mounted) {
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-          }
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
+    const storedUser = localStorage.getItem('coachingUser');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const login = async (username, password) => {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('*')
+      .eq('username', username);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('User not found');
 
-    return data;
+    const user = data[0];
+    if (user.password !== password) throw new Error('Invalid password');
+
+    setUser(user);
+    localStorage.setItem('coachingUser', JSON.stringify(user));
+    return { user };
   };
 
   const logout = async () => {
-    await supabaseClient.auth.signOut();
     setUser(null);
-    setProfile(null);
+    localStorage.removeItem('coachingUser');
   };
 
   return {
     user,
-    profile,
     loading,
     login,
-    isAuthenticated: !!user && !!profile,
-    role: profile?.role || null,
+    isAuthenticated: !!user,
+    role: user?.role || null,
     logout
   };
 };
