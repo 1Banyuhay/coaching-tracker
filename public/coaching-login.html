@@ -25,18 +25,39 @@ body { font-family:sans-serif; background:linear-gradient(135deg,#a85a2b,#9d5220
 <script>
 const SUPABASE_URL = "https://vszfhpbvzzxijcrrnclh.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemZocGJ2enp4aWpjcnJuY2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzAzMTEsImV4cCI6MjEwMzgwNjMxMX0.p48DdmF9k4nSOdm6Eeag42yZBO1HKZVin2Bhl_MNQ7Q";
+
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
   const errorDiv = document.getElementById("error");
+
   try {
-    const res = await fetch(SUPABASE_URL + "/rest/v1/coaching_users?select=*", {
-      headers: { "Authorization": "Bearer " + SUPABASE_KEY, "apikey": SUPABASE_KEY }
+    const url = SUPABASE_URL + "/rest/v1/coaching_users?select=*";
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY,
+        "Content-Type": "application/json"
+      }
     });
-    const users = await res.json();
-    const user = users.find(u => u.username === username && u.password === password);
-    if (!user) { errorDiv.textContent = "Invalid username or password"; errorDiv.style.display = "block"; return; }
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      errorDiv.textContent = "Error: " + (data.message || response.statusText);
+      errorDiv.style.display = "block";
+      return;
+    }
+
+    const user = data.find(u => u.username === username && u.password === password);
+    if (!user) {
+      errorDiv.textContent = "Invalid username or password";
+      errorDiv.style.display = "block";
+      return;
+    }
+
     localStorage.setItem("coachingUser", JSON.stringify(user));
     window.location.href = "/coaching";
   } catch (err) {
