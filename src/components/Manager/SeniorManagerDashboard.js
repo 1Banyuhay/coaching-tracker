@@ -18,7 +18,7 @@ const SeniorManagerDashboard = () => {
     if (!user?.id) return;
 
     const loadData = async () => {
-      const dashboardData = await dashboardService.getManagerDashboard(user.id);
+      const dashboardData = await dashboardService.getSeniorManagerDashboard(user.id);
       setData(dashboardData);
       setLoading(false);
     };
