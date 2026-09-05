@@ -1,7 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './Navbar.css';
 
@@ -41,7 +41,7 @@ const Navbar = () => {
             <div className="user-info">
               <div className="user-details">
                 <p className="user-name">
-                  {user.first_name} {user.last_name}
+                  {user.full_name}
                 </p>
                 <p className="user-role">{getRoleLabel(user.role)}</p>
               </div>
@@ -55,6 +55,10 @@ const Navbar = () => {
 
               {menuOpen && (
                 <div className="navbar-dropdown">
+                  <Link to="/account/password" className="logout-btn" onClick={() => setMenuOpen(false)}>
+                    <KeyRound size={18} />
+                    Change Password
+                  </Link>
                   <button onClick={handleLogout} className="logout-btn">
                     <LogOut size={18} />
                     Logout

@@ -54,9 +54,12 @@ export function categorizePlanners(planners, records) {
   const needCoaching = [];
   const acknowledged = [];
   const completed = [];
+  let coachedAtLeastOnce = 0;
 
   byPlanner.forEach((entry) => {
     const rs = entry.records;
+    if (rs.length >= 1) coachedAtLeastOnce += 1;
+
     if (rs.length <= 1) {
       needCoaching.push(entry);
     } else if (rs.some((r) => r.status === 'coaching_complete')) {
@@ -79,6 +82,8 @@ export function categorizePlanners(planners, records) {
     completed,
     avgCompetency,
     totalPlanners: planners.length,
+    coachedAtLeastOnce,
+    pctCoached: planners.length ? Math.round((coachedAtLeastOnce / planners.length) * 100) : null,
   };
 }
 
@@ -99,13 +104,24 @@ export async function acknowledgeCoachingRecord(recordId) {
 export const dashboardService = {
   async getManagerDashboard(userId) {
     try {
-      const { data: givenRecordsRaw } = await supabaseClient
-        .from('coaching_records')
-        .select('*')
-        .eq('coach_id', userId);
+      // "Team" is the real roster - planners whose reports_to_id points at
+      // this manager - not just whoever they happen to have coached. That
+      // is what makes "Need Coaching" (0 sessions) and the coached-% stat
+      // meaningful instead of self-fulfilling.
+      const { data: rosterRaw } = await supabaseClient
+        .from('coaching_users')
+        .select('id, full_name, role, branch')
+        .eq('role', 'planner')
+        .eq('reports_to_id', userId);
+
+      const roster = rosterRaw || [];
+      const rosterIds = roster.map((p) => p.id);
+
+      const { data: givenRecordsRaw } = rosterIds.length
+        ? await supabaseClient.from('coaching_records').select('*').eq('coach_id', userId).in('planner_id', rosterIds)
+        : { data: [] };
 
       const givenRecords = givenRecordsRaw || [];
-      const teamPlannerIds = [...new Set(givenRecords.map((r) => r.planner_id))];
 
       const { data: incomingRaw } = await supabaseClient
         .from('coaching_records')
@@ -116,12 +132,11 @@ export const dashboardService = {
       const incomingRecords = incomingRaw || [];
 
       const usersById = await getUsersByIds([
-        ...teamPlannerIds,
+        ...rosterIds,
         ...incomingRecords.map((r) => r.coach_id),
       ]);
 
-      const teamPlanners = teamPlannerIds.map((id) => usersById.get(id)).filter(Boolean);
-      const buckets = categorizePlanners(teamPlanners, givenRecords);
+      const buckets = categorizePlanners(roster, givenRecords);
 
       return {
         stats: {
@@ -131,6 +146,8 @@ export const dashboardService = {
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
+          coachedAtLeastOnce: buckets.coachedAtLeastOnce,
+          pctCoached: buckets.pctCoached,
         },
         buckets,
         sessions: attachNames(givenRecords, usersById),
@@ -184,6 +201,8 @@ export const dashboardService = {
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
+          coachedAtLeastOnce: buckets.coachedAtLeastOnce,
+          pctCoached: buckets.pctCoached,
         },
         buckets,
         sessions: attachNames(ownRecords, usersById),

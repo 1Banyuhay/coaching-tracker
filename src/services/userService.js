@@ -1,187 +1,158 @@
-import { supabase } from './supabaseClient';
+import { supabaseClient } from '../config/supabase';
+
+// Characters chosen to avoid visual mix-ups when someone hand-types a temp
+// password off a screen (no 0/O, no 1/I/l).
+const TEMP_PASSWORD_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+function generateTempPassword(length = 10) {
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += TEMP_PASSWORD_CHARS[Math.floor(Math.random() * TEMP_PASSWORD_CHARS.length)];
+  }
+  return out;
+}
 
 export const userService = {
-  // Get user profile
-  getUserProfile: async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+  // All users (for the Senior Manager's team management list).
+  async getAllUsers() {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status, reports_to_id, password_reset_required, created_at')
+      .order('role', { ascending: true })
+      .order('full_name', { ascending: true });
 
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    if (error) throw error;
+    return data || [];
   },
 
-  // Get all planners for a manager
-  getManagerPlanners: async (managerId) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('reports_to_id', managerId)
-        .eq('role', 'planner')
-        .eq('is_active', true)
-        .order('last_name', { ascending: true });
+  // Planners assigned to a specific manager (reports_to_id = managerId).
+  async getTeamRoster(managerId) {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status')
+      .eq('role', 'planner')
+      .eq('reports_to_id', managerId);
 
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    if (error) throw error;
+    return data || [];
   },
 
-  // Get planner details with coaching stats
-  getPlannerProfile: async (plannerId, managerId = null) => {
-    try {
-      // Get planner profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', plannerId)
-        .single();
+  async getAllPlanners() {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status, reports_to_id')
+      .eq('role', 'planner')
+      .order('full_name', { ascending: true });
 
-      if (profileError) throw profileError;
-
-      // Get coaching stats for current month
-      const today = new Date();
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-      const { data: monthCoachingSessions } = await supabase
-        .from('coaching_sessions')
-        .select('id')
-        .eq('planner_id', plannerId)
-        .gte('coaching_date', monthStart.toISOString().split('T')[0])
-        .lte('coaching_date', monthEnd.toISOString().split('T')[0]);
-
-      // Get YTD coaching sessions
-      const yearStart = new Date(today.getFullYear(), 0, 1);
-      const { data: ytdCoachingSessions } = await supabase
-        .from('coaching_sessions')
-        .select('id')
-        .eq('planner_id', plannerId)
-        .gte('coaching_date', yearStart.toISOString().split('T')[0]);
-
-      // Get pending confirmations
-      const { data: pendingConfirmations } = await supabase
-        .from('coaching_sessions')
-        .select('id')
-        .eq('planner_id', plannerId)
-        .eq('status', 'awaiting_planner_confirmation');
-
-      // Get follow-ups due
-      const { data: followUpsDue } = await supabase
-        .from('coaching_sessions')
-        .select('id')
-        .eq('planner_id', plannerId)
-        .eq('follow_up_required', true)
-        .lte('follow_up_date', today.toISOString().split('T')[0])
-        .neq('status', 'cancelled');
-
-      // Get current action items
-      const { data: actionItems } = await supabase
-        .from('action_items')
-        .select(`
-          *,
-          coaching_session:coaching_session_id(planner_id)
-        `)
-        .eq('coaching_session.planner_id', plannerId)
-        .neq('status', 'completed')
-        .neq('status', 'cancelled');
-
-      return {
-        data: {
-          ...profile,
-          stats: {
-            coachingThisMonth: monthCoachingSessions?.length || 0,
-            coachingYTD: ytdCoachingSessions?.length || 0,
-            pendingConfirmations: pendingConfirmations?.length || 0,
-            followUpsDue: followUpsDue?.length || 0,
-            activeActionItems: actionItems?.length || 0,
-          },
-        },
-        error: null,
-      };
-    } catch (error) {
-      return { data: null, error };
-    }
+    if (error) throw error;
+    return data || [];
   },
 
-  // Get last coaching date for planner
-  getLastCoachingDate: async (plannerId) => {
-    try {
-      const { data, error } = await supabase
-        .from('coaching_sessions')
-        .select('coaching_date')
-        .eq('planner_id', plannerId)
-        .neq('status', 'cancelled')
-        .order('coaching_date', { ascending: false })
-        .limit(1)
-        .single();
+  async getAllManagers() {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status')
+      .eq('role', 'manager')
+      .order('full_name', { ascending: true });
 
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
-      return { data: data?.coaching_date || null, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    if (error) throw error;
+    return data || [];
   },
 
-  // Get latest competency ratings for planner
-  getLatestCompetencies: async (plannerId, limit = 10) => {
-    try {
-      const { data, error } = await supabase
-        .from('coaching_assessments')
-        .select(`
-          *,
-          coaching_item:coaching_item_id(
-            *,
-            topic:topic_id(
-              *,
-              category:category_id(*)
-            )
-          ),
-          coaching_session:coaching_session_id(coaching_date)
-        `)
-        .eq('coaching_session.planner_id', plannerId)
-        .order('coaching_session(coaching_date)', { ascending: false })
-        .limit(limit);
+  // Creates a new user with a random temporary password. Returns the
+  // created row plus the plaintext temp password (shown once so the
+  // Senior Manager can relay it - it is not recoverable after this call).
+  async createUser({ fullName, username, role, branch, reportsToId }) {
+    const tempPassword = generateTempPassword();
 
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  },
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .insert({
+        username,
+        full_name: fullName,
+        role,
+        branch: branch || null,
+        reports_to_id: reportsToId || null,
+        status: 'active',
+        password: tempPassword,
+        password_reset_required: true,
+      })
+      .select()
+      .single();
 
-  // Check if user can access planner (authorization)
-  canAccessPlanner: async (userId, plannerId) => {
-    try {
-      // Get user's role
-      const { data: user } = await userService.getUserProfile(userId);
-      if (!user) return { canAccess: false, error: 'User not found' };
-
-      // Admin can access anyone
-      if (user.role === 'admin') return { canAccess: true, error: null };
-
-      // Planner can only access themselves
-      if (user.role === 'planner') {
-        return { canAccess: userId === plannerId, error: null };
+    if (error) {
+      if (error.code === '23505') {
+        throw new Error(`Username "${username}" is already taken`);
       }
-
-      // Manager can access their assigned planners
-      if (user.role === 'manager') {
-        const { data: planner } = await userService.getUserProfile(plannerId);
-        return { canAccess: planner?.reports_to_id === userId, error: null };
-      }
-
-      return { canAccess: false, error: 'Insufficient permissions' };
-    } catch (error) {
-      return { canAccess: false, error };
+      throw error;
     }
+
+    return { user: data, tempPassword };
+  },
+
+  // Generates and sets a new temporary password for an existing user.
+  async resetPassword(userId) {
+    const tempPassword = generateTempPassword();
+
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update({ password: tempPassword, password_reset_required: true })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return tempPassword;
+  },
+
+  // A logged-in user setting their own new password (clears the
+  // must-change flag so they aren't prompted again).
+  async changeOwnPassword(userId, newPassword) {
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update({ password: newPassword, password_reset_required: false })
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  async setStatus(userId, status) {
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update({ status })
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  async assignManager(userId, reportsToId) {
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update({ reports_to_id: reportsToId || null })
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  // Hard delete only makes sense for a user with no coaching history -
+  // deleting someone with coaching_records would either fail or destroy
+  // real organizational history. Callers should offer "deactivate"
+  // instead when this throws.
+  async deleteUser(userId) {
+    const { count: coachCount } = await supabaseClient
+      .from('coaching_records')
+      .select('id', { count: 'exact', head: true })
+      .eq('coach_id', userId);
+    const { count: plannerCount } = await supabaseClient
+      .from('coaching_records')
+      .select('id', { count: 'exact', head: true })
+      .eq('planner_id', userId);
+
+    if ((coachCount || 0) > 0 || (plannerCount || 0) > 0) {
+      throw new Error(
+        'This person has coaching history attached to their account. Deactivate them instead of deleting, so that history is preserved.'
+      );
+    }
+
+    const { error } = await supabaseClient.from('coaching_users').delete().eq('id', userId);
+    if (error) throw error;
   },
 };

@@ -1,11 +1,12 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
 import Navbar from './components/Layout/Navbar';
 import Sidebar from './components/Layout/Sidebar';
 import Placeholder from './components/Placeholder';
+import ChangePassword from './components/Layout/ChangePassword';
 
 // Auth Pages
 import LoginForm from './components/Auth/LoginForm';
@@ -15,6 +16,7 @@ import ManagerDashboard from './components/Manager/ManagerDashboard';
 import SeniorManagerDashboard from './components/Manager/SeniorManagerDashboard';
 import CoachingFormWizard from './components/Manager/CoachingForm/CoachingFormWizard';
 import PlannerProfile from './components/Manager/PlannerProfile';
+import TeamManagement from './components/Manager/TeamManagement';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
@@ -26,8 +28,20 @@ import LibraryBrowser from './components/Admin/CoachingLibrary/LibraryBrowser';
 
 import './App.css';
 
+function ChangePasswordRoute() {
+  const navigate = useNavigate();
+  const { role } = useAuth();
+  const dashboardPath =
+    role === 'senior_manager' || role === 'manager'
+      ? '/manager/dashboard'
+      : role === 'planner'
+      ? '/planner/dashboard'
+      : '/admin/dashboard';
+  return <ChangePassword onDone={() => navigate(dashboardPath)} />;
+}
+
 function App() {
-  const { isAuthenticated, loading, role } = useAuth();
+  const { isAuthenticated, loading, role, user } = useAuth();
 
   if (loading) {
     return (
@@ -47,6 +61,10 @@ function App() {
         </Routes>
       </Router>
     );
+  }
+
+  if (user?.password_reset_required) {
+    return <ChangePassword forced />;
   }
 
   // Authenticated routes
@@ -82,6 +100,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="senior_manager">
                     <SeniorManagerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/senior-manager/team"
+                element={
+                  <ProtectedRoute requiredRole="senior_manager">
+                    <TeamManagement />
                   </ProtectedRoute>
                 }
               />
@@ -173,6 +199,9 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Account */}
+              <Route path="/account/password" element={<ChangePasswordRoute />} />
 
               {/* Default Routes */}
               <Route

@@ -56,12 +56,24 @@ export const useAuth = () => {
     localStorage.removeItem('coachingUser');
   };
 
+  // Merge partial updates into the cached user (e.g. after a password
+  // change) without requiring a full re-login.
+  const updateStoredUser = (updates) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      localStorage.setItem('coachingUser', JSON.stringify(next));
+      return next;
+    });
+  };
+
   return {
     user,
     loading,
     login,
     isAuthenticated: !!user,
     role: user?.role || null,
-    logout
+    logout,
+    updateStoredUser
   };
 };

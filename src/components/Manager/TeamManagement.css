@@ -1,0 +1,44 @@
+.team-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-btn-danger {
+  background: #c32626;
+}
+
+.action-btn-danger:hover {
+  background: #a01f1f;
+}
+
+.team-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-form .field-label {
+  margin-top: 1rem;
+}
+
+.team-form .field-label:first-child {
+  margin-top: 0;
+}
+
+.temp-password-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f5f1ed;
+  border: 1.5px dashed #d4762b;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.temp-password-box code {
+  font-size: 20px;
+  font-weight: 700;
+  color: #8b3a3a;
+  letter-spacing: 0.05em;
+}

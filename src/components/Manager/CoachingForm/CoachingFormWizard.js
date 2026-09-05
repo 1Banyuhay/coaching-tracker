@@ -1,312 +1,227 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { coachingService } from '../../../services/coachingService';
 import { userService } from '../../../services/userService';
-import StepSelectPlanner from './StepSelectPlanner';
-import StepSelectTopics from './StepSelectTopics';
-import StepAssessment from './StepAssessment';
-import StepActionItems from './StepActionItems';
-import StepReview from './StepReview';
+import { supabaseClient } from '../../../config/supabase';
 import toast from 'react-hot-toast';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import './CoachingFormWizard.css';
 
+const TOPIC_OPTIONS = [
+  'Riders', 'Smart Start', 'Manifest', 'Fast Lane', 'Wealth+', 'Set for Health',
+  'Future Sure', 'The One', 'Branding', 'Prospecting', 'Appointment Setting',
+  'Objection-Handling', 'Closing', 'Cube App', 'Omne App', 'FNA FBB App',
+  'Financial Building Blocks', 'Policy Review', 'Investment Discussion',
+  'Debt Management', 'Incentives', 'Compensation', 'Promotion', 'Others',
+];
+
+const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
+
 const CoachingFormWizard = () => {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { sessionId } = useParams();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    plannerId: '',
-    coachingDate: new Date().toISOString().split('T')[0],
-    selectedTopics: [], // Array of { topicId, itemIds: [] }
-    assessments: {}, // { itemId: { rating, validationMethod, notes } }
-    actionItems: [], // Array of { action, assignedToId, dueDate }
-    observations: '',
-    followUpRequired: false,
-    followUpDate: null,
-  });
 
   const [planners, setPlanners] = useState([]);
-  const [selectedPlanner, setSelectedPlanner] = useState(null);
+  const [loadingPlanners, setLoadingPlanners] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [plannerId, setPlannerId] = useState('');
+  const [topic, setTopic] = useState('');
+  const [customTopic, setCustomTopic] = useState('');
+  const [competency, setCompetency] = useState(2);
+  const [discussion, setDiscussion] = useState('');
+  const [actionItems, setActionItems] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+
+  const dashboardPath = user?.role === 'senior_manager' ? '/senior-manager/dashboard' : '/manager/dashboard';
 
   useEffect(() => {
+    if (!user?.id) return;
+
+    const loadPlanners = async () => {
+      try {
+        const list =
+          user.role === 'senior_manager'
+            ? await userService.getAllPlanners()
+            : await userService.getTeamRoster(user.id);
+        setPlanners(list);
+      } catch (error) {
+        console.error('Error loading planners:', error);
+        toast.error('Failed to load planners');
+      } finally {
+        setLoadingPlanners(false);
+      }
+    };
+
     loadPlanners();
-    if (sessionId) {
-      loadExistingSession();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, sessionId]);
+  }, [user?.id, user?.role]);
 
-  const loadPlanners = async () => {
+  const finalTopic = useMemo(() => (topic === 'Others' ? customTopic.trim() : topic), [topic, customTopic]);
+
+  const isComplete =
+    plannerId && finalTopic && discussion.trim() && actionItems.trim() && followUpDate;
+
+  const handleSubmit = async () => {
+    if (!isComplete) {
+      toast.error('Please complete all sections before saving');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const { data } = await userService.getManagerPlanners(profile.id);
-      setPlanners(data || []);
+      const { error } = await supabaseClient.from('coaching_records').insert({
+        planner_id: parseInt(plannerId, 10),
+        coach_id: user.id,
+        topic: finalTopic,
+        competency_level: competency,
+        discussion_notes: discussion.trim(),
+        action_items: actionItems.trim(),
+        follow_up_date: followUpDate,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      toast.success('Coaching session saved! Awaiting the planner’s acknowledgement.');
+      navigate(dashboardPath);
     } catch (error) {
-      console.error('Error loading planners:', error);
-      toast.error('Failed to load planners');
-    }
-  };
-
-  const loadExistingSession = async () => {
-    try {
-      const { data: session } = await coachingService.getCoachingSession(sessionId);
-      if (session && session.manager_id === profile.id) {
-        // Load assessments and action items if needed
-        await coachingService.getSessionAssessments(sessionId);
-        await coachingService.getSessionActionItems(sessionId);
-        
-        setFormData(prev => ({
-          ...prev,
-          plannerId: session.planner_id,
-          coachingDate: session.coaching_date,
-          observations: session.observations || '',
-          followUpRequired: session.follow_up_required || false,
-          followUpDate: session.follow_up_date,
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading session:', error);
-    }
-  };
-
-  const handleNextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 5));
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const handlePrevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-    window.scrollTo(0, 0);
-  };
-
-  const validateStep = (step) => {
-    switch (step) {
-      case 1:
-        if (!formData.plannerId) {
-          toast.error('Please select a planner');
-          return false;
-        }
-        if (!formData.coachingDate) {
-          toast.error('Please select a coaching date');
-          return false;
-        }
-        return true;
-      case 2:
-        if (formData.selectedTopics.length === 0) {
-          toast.error('Please select at least one topic');
-          return false;
-        }
-        return true;
-      case 3:
-        // At least one item should be assessed
-        const assessedItems = Object.keys(formData.assessments);
-        if (assessedItems.length === 0) {
-          toast.error('Please assess at least one coaching item');
-          return false;
-        }
-        return true;
-      default:
-        return true;
-    }
-  };
-
-  const handleSubmitCoaching = async () => {
-    setLoading(true);
-    try {
-      let newSessionId = sessionId;
-
-      if (!sessionId) {
-        // Create new session
-        const { data: session, error } = await coachingService.createCoachingSession(
-          profile.id,
-          formData.plannerId,
-          formData.coachingDate
-        );
-
-        if (error) throw error;
-        newSessionId = session.id;
-      }
-
-      // Add assessments
-      for (const [itemId, assessment] of Object.entries(formData.assessments)) {
-        await coachingService.addAssessment(
-          newSessionId,
-          itemId,
-          assessment.rating,
-          assessment.validationMethod,
-          assessment.notes
-        );
-      }
-
-      // Add action items
-      for (const actionItem of formData.actionItems) {
-        await coachingService.addActionItem(
-          newSessionId,
-          actionItem.action,
-          actionItem.assignedToId,
-          actionItem.dueDate
-        );
-      }
-
-      // Submit session
-      await coachingService.submitCoachingSession(
-        newSessionId,
-        formData.observations,
-        formData.followUpRequired,
-        formData.followUpDate
-      );
-
-      toast.success('Coaching session submitted! Awaiting planner confirmation.');
-      navigate('/manager/dashboard');
-    } catch (error) {
-      console.error('Error submitting coaching:', error);
-      toast.error('Failed to submit coaching session');
+      console.error('Error saving coaching session:', error);
+      toast.error('Failed to save coaching session');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
-
-  const updateFormData = (updates) => {
-    setFormData(prev => ({ ...prev, ...updates }));
-  };
-
-  const stepTitles = [
-    'Select Planner',
-    'Select Topics',
-    'Assess Competency',
-    'Action Items',
-    'Review & Submit',
-  ];
 
   const handleCancel = () => {
-    if (window.confirm('Are you sure? Any unsaved progress will be lost.')) {
-      navigate('/manager/dashboard');
+    if (window.confirm('Discard this coaching log?')) {
+      navigate(dashboardPath);
     }
   };
 
   return (
-    <div className="coaching-wizard">
-      {/* Header */}
-      <div className="wizard-header">
-        <h1>Coaching Session</h1>
-        <div className="wizard-progress">
-          <p className="progress-text">Step {currentStep} of 5</p>
-          <div className="progress-bar">
-            <div 
-              className="progress-fill"
-              style={{ width: `${(currentStep / 5) * 100}%` }}
-            ></div>
+    <div className="coaching-log">
+      <div className="log-header">
+        <h1>Coaching Log</h1>
+        <p>Record a coaching session with a planner</p>
+      </div>
+
+      <div className="log-card">
+        <div className="log-section">
+          <div className="section-header">
+            <div className="section-number">1</div>
+            <div className="section-title">Planner</div>
           </div>
-        </div>
-      </div>
 
-      {/* Steps Indicator */}
-      <div className="wizard-steps">
-        {stepTitles.map((title, index) => (
-          <div
-            key={index}
-            className={`step-indicator ${
-              index + 1 === currentStep
-                ? 'active'
-                : index + 1 < currentStep
-                ? 'completed'
-                : ''
-            }`}
-            onClick={() => index + 1 < currentStep && setCurrentStep(index + 1)}
-          >
-            <div className="step-number">{index + 1}</div>
-            <p className="step-title">{title}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Step Content */}
-      <div className="wizard-content">
-        {currentStep === 1 && (
-          <StepSelectPlanner
-            formData={formData}
-            updateFormData={updateFormData}
-            planners={planners}
-            selectedPlanner={selectedPlanner}
-            setSelectedPlanner={setSelectedPlanner}
-          />
-        )}
-
-        {currentStep === 2 && (
-          <StepSelectTopics
-            formData={formData}
-            updateFormData={updateFormData}
-          />
-        )}
-
-        {currentStep === 3 && (
-          <StepAssessment
-            formData={formData}
-            updateFormData={updateFormData}
-          />
-        )}
-
-        {currentStep === 4 && (
-          <StepActionItems
-            formData={formData}
-            updateFormData={updateFormData}
-            planners={planners}
-          />
-        )}
-
-        {currentStep === 5 && (
-          <StepReview
-            formData={formData}
-            updateFormData={updateFormData}
-            selectedPlanner={selectedPlanner}
-            planners={planners}
-          />
-        )}
-      </div>
-
-      {/* Navigation Buttons */}
-      <div className="wizard-footer">
-        <button
-          className="btn-secondary"
-          onClick={handleCancel}
-          disabled={loading}
-        >
-          Cancel
-        </button>
-
-        <div className="nav-buttons">
-          <button
-            className="btn-secondary"
-            onClick={handlePrevStep}
-            disabled={currentStep === 1 || loading}
-          >
-            <ChevronLeft size={18} />
-            Previous
-          </button>
-
-          {currentStep < 5 ? (
-            <button
-              className="btn-primary"
-              onClick={handleNextStep}
-              disabled={loading}
-            >
-              Next
-              <ChevronRight size={18} />
-            </button>
+          {loadingPlanners ? (
+            <div className="info-text">Loading planners...</div>
+          ) : planners.length === 0 ? (
+            <div className="no-data">
+              {user?.role === 'senior_manager'
+                ? 'No planners are registered yet.'
+                : 'No planners are assigned to you yet. Ask your Senior Manager to add you as their manager in Manage Team.'}
+            </div>
           ) : (
-            <button
-              className="btn-primary btn-success"
-              onClick={handleSubmitCoaching}
-              disabled={loading}
-            >
-              {loading ? 'Submitting...' : 'Submit Coaching Session'}
-            </button>
+            <select className="form-control" value={plannerId} onChange={(e) => setPlannerId(e.target.value)}>
+              <option value="">-- Select a planner --</option>
+              {planners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name}{p.branch ? ` (${p.branch})` : ''}
+                </option>
+              ))}
+            </select>
           )}
+        </div>
+
+        <div className="log-section">
+          <div className="section-header">
+            <div className="section-number">2</div>
+            <div className="section-title">Coaching Focus Area</div>
+          </div>
+
+          <select className="form-control" value={topic} onChange={(e) => setTopic(e.target.value)}>
+            <option value="">-- Select a topic --</option>
+            {TOPIC_OPTIONS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          {topic === 'Others' && (
+            <input
+              type="text"
+              className="form-control"
+              style={{ marginTop: '0.75rem' }}
+              placeholder="Please specify the coaching topic..."
+              value={customTopic}
+              onChange={(e) => setCustomTopic(e.target.value)}
+            />
+          )}
+        </div>
+
+        <div className="log-section">
+          <div className="section-header">
+            <div className="section-number">3</div>
+            <div className="section-title">Competency Level</div>
+          </div>
+
+          <div className="competency-slider-section">
+            <div className="slider-labels">
+              {COMPETENCY_LABELS.map((label) => <span key={label}>{label}</span>)}
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="4"
+              value={competency}
+              onChange={(e) => setCompetency(parseInt(e.target.value, 10))}
+            />
+          </div>
+          <div className="info-text">Current selection: {COMPETENCY_LABELS[competency - 1]}</div>
+        </div>
+
+        <div className="log-section">
+          <div className="section-header">
+            <div className="section-number">4</div>
+            <div className="section-title">Discussion Notes</div>
+          </div>
+          <textarea
+            className="form-control"
+            placeholder="What did you observe? What coaching was provided?"
+            value={discussion}
+            onChange={(e) => setDiscussion(e.target.value)}
+          />
+        </div>
+
+        <div className="log-section">
+          <div className="section-header">
+            <div className="section-number">5</div>
+            <div className="section-title">Action Items &amp; Follow-Up</div>
+          </div>
+          <textarea
+            className="form-control"
+            placeholder="What needs to happen before the next coaching session?"
+            value={actionItems}
+            onChange={(e) => setActionItems(e.target.value)}
+          />
+          <label className="field-label" htmlFor="followup-date">Follow-Up Date</label>
+          <input
+            id="followup-date"
+            type="date"
+            className="form-control"
+            value={followUpDate}
+            onChange={(e) => setFollowUpDate(e.target.value)}
+          />
+        </div>
+
+        <div className="status-bar">
+          {isComplete ? '✓ All sections complete - ready to save' : '○ Complete all sections to proceed'}
+        </div>
+
+        <div className="button-group">
+          <button type="button" className="btn-secondary" onClick={handleCancel} disabled={submitting}>
+            Cancel
+          </button>
+          <button type="button" className="btn-primary" onClick={handleSubmit} disabled={submitting || !isComplete}>
+            {submitting ? 'Saving...' : 'Save Coaching Log'}
+          </button>
         </div>
       </div>
     </div>

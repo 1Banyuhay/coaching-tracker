@@ -8,6 +8,25 @@ const Sidebar = ({ role }) => {
 
   const getMenuItems = () => {
     switch (role) {
+      case 'senior_manager':
+        return [
+          {
+            label: 'Dashboard',
+            path: '/senior-manager/dashboard',
+            icon: <BarChart3 size={20} />,
+          },
+          {
+            label: 'Start Coaching',
+            path: '/manager/coaching/start',
+            icon: <FileText size={20} />,
+          },
+          {
+            label: 'Manage Team',
+            path: '/senior-manager/team',
+            icon: <Users size={20} />,
+          },
+        ];
+
       case 'manager':
         return [
           {

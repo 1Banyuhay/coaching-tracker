@@ -256,7 +256,11 @@ const ManagerDashboard = () => {
           <button className="metric-value-btn" onClick={() => setActiveCard('totalPlanners')}>
             {stats.totalPlanners || 0}
           </button>
-          <div className="metric-detail">in your team</div>
+          <div className="metric-detail">
+            {stats.totalPlanners
+              ? `${stats.coachedAtLeastOnce || 0} of ${stats.totalPlanners} (${stats.pctCoached}%) coached at least once`
+              : 'in your team'}
+          </div>
         </div>
       </div>
 
