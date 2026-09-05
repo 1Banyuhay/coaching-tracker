@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import './Navbar.css';
 
 const Navbar = () => {
-  const { profile, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -37,13 +37,13 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-content">
-          {profile && (
+          {user && (
             <div className="user-info">
               <div className="user-details">
                 <p className="user-name">
-                  {profile.first_name} {profile.last_name}
+                  {user.first_name} {user.last_name}
                 </p>
-                <p className="user-role">{getRoleLabel(profile.role)}</p>
+                <p className="user-role">{getRoleLabel(user.role)}</p>
               </div>
 
               <button
