@@ -25,6 +25,7 @@ const SeniorManagerDashboard = () => {
   const [managerSessionsRowsPerPage, setManagerSessionsRowsPerPage] = useState(20);
   const [activeCard, setActiveCard] = useState(null);
   const [detailSession, setDetailSession] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -169,6 +170,25 @@ const SeniorManagerDashboard = () => {
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
+      <div className="dashboard-tabs">
+        <button
+          type="button"
+          className={`dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Branch Overview
+        </button>
+        <button
+          type="button"
+          className={`dashboard-tab ${activeTab === 'byManager' ? 'active' : ''}`}
+          onClick={() => setActiveTab('byManager')}
+        >
+          By Manager
+        </button>
+      </div>
+
+      {activeTab === 'overview' && (
+      <>
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-label">Need Coaching</div>
@@ -296,6 +316,51 @@ const SeniorManagerDashboard = () => {
           + START NEW COACHING SESSION
         </button>
       </div>
+      </>
+      )}
+
+      {activeTab === 'byManager' && (
+        <div className="card">
+          <h2 className="section-title">MANAGERS IN YOUR BRANCH</h2>
+
+          {(data.managerSummaries || []).length === 0 ? (
+            <div className="no-data">No managers reporting to you yet</div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Manager</th>
+                  <th>Status</th>
+                  <th>Planners</th>
+                  <th>Coached At Least Once</th>
+                  <th>Sessions</th>
+                  <th>Avg Competency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.managerSummaries.map((m) => (
+                  <tr key={m.id}>
+                    <td><strong>{m.name}</strong></td>
+                    <td>
+                      <span className={`status-badge ${m.status === 'active' ? 'status-acknowledged' : 'status-pending'}`}>
+                        {m.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td>{m.totalPlanners}</td>
+                    <td>
+                      {m.totalPlanners
+                        ? `${m.coachedAtLeastOnce} of ${m.totalPlanners} (${m.pctCoached}%)`
+                        : '—'}
+                    </td>
+                    <td>{m.totalSessions}</td>
+                    <td>{competencyLabel(m.avgCompetency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {activeCard && (
         <SummaryModal

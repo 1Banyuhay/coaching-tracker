@@ -267,6 +267,35 @@ export const dashboardService = {
       const managerSessions = named.filter((s) => usersById.get(s.planner_id)?.role === 'manager');
       const plannerSessions = named.filter((s) => usersById.get(s.planner_id)?.role !== 'manager');
 
+      // Per-manager rollup for the "By Manager" tab - each manager in this
+      // branch with their own roster size, coached-%, session count and
+      // average competency, so a Senior Manager can see at a glance which
+      // of their managers is actually coaching, not just the branch total.
+      const managerSummaries = managers.map((m) => {
+        const myPlanners = planners.filter((p) => p.reports_to_id === m.id);
+        const myPlannerIds = new Set(myPlanners.map((p) => p.id));
+        const myRecords = scopedRecords.filter((r) => myPlannerIds.has(r.planner_id));
+        const competencyValues = myRecords
+          .map((r) => r.competency_level)
+          .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+        const avgCompetency = competencyValues.length
+          ? competencyValues.reduce((a, b) => a + b, 0) / competencyValues.length
+          : null;
+        const coachedAtLeastOnce = myPlanners.filter((p) => myRecords.some((r) => r.planner_id === p.id)).length;
+
+        return {
+          id: m.id,
+          name: m.full_name,
+          branch: m.branch,
+          status: m.status,
+          totalPlanners: myPlanners.length,
+          coachedAtLeastOnce,
+          pctCoached: myPlanners.length ? Math.round((coachedAtLeastOnce / myPlanners.length) * 100) : null,
+          totalSessions: myRecords.length,
+          avgCompetency,
+        };
+      });
+
       return {
         stats: {
           needCoaching: buckets.needCoaching.length,
@@ -279,6 +308,7 @@ export const dashboardService = {
         },
         buckets,
         managers,
+        managerSummaries,
         sessions: plannerSessions,
         managerSessions,
       };
@@ -288,6 +318,7 @@ export const dashboardService = {
         stats: {},
         buckets: { needCoaching: [], acknowledged: [], completed: [] },
         managers: [],
+        managerSummaries: [],
         sessions: [],
         managerSessions: [],
       };

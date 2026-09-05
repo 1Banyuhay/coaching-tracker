@@ -88,9 +88,14 @@ const Sidebar = ({ role }) => {
             icon: <BookOpen size={20} />,
           },
           {
-            label: 'Users',
-            path: '/admin/users',
+            label: 'Manage Team',
+            path: '/senior-manager/team',
             icon: <Users size={20} />,
+          },
+          {
+            label: 'Start Coaching',
+            path: '/manager/coaching/start',
+            icon: <FileText size={20} />,
           },
           {
             label: 'Settings',

@@ -105,7 +105,9 @@ export const userService = {
         username,
         full_name: fullName,
         role,
-        branch: branch || null,
+        // coaching_users.branch is NOT NULL - an empty string (not null)
+        // for "no branch set" (e.g. Admin accounts).
+        branch: branch || '',
         reports_to_id: reportsToId || null,
         status: 'active',
         password: passwordHash,
@@ -173,20 +175,23 @@ export const userService = {
   // Changes an existing person's role - the "promote a planner to manager"
   // (or move a manager back to planner) case that comes up on real
   // promotions, without having to delete and recreate the account and lose
-  // their coaching history. Only ever called with newRole 'planner' or
-  // 'manager' - Senior Manager and Admin are not grantable this way.
+  // their coaching history. 'planner' and 'manager' are grantable by a
+  // Senior Manager; 'senior_manager' is only ever offered in the UI to an
+  // Admin (Admin sits above Senior Manager, so only Admin hands that role
+  // out or takes it back).
   //
   // Promoting someone to manager sets their reports_to_id to the acting
-  // Senior Manager (the same rule new managers get on creation - a Senior
-  // Manager only ever manages their own branch, so there's no one else to
-  // pick). Moving a manager back to planner clears reports_to_id since
-  // their old planner roster reassigns to someone else, not to them.
-  async updateRole(userId, newRole, actingSeniorManagerId) {
-    if (newRole !== 'planner' && newRole !== 'manager') {
-      throw new Error('Role can only be changed to planner or manager here');
+  // Senior Manager/Admin (the same rule new managers get on creation - a
+  // Senior Manager only ever manages their own branch, so there's no one
+  // else to pick). Any other role change clears reports_to_id - a planner
+  // reassigns to a new manager like normal, and a Senior Manager has no
+  // manager-side reporting line at all.
+  async updateRole(userId, newRole, actingManagerOrSeniorManagerId) {
+    if (!['planner', 'manager', 'senior_manager'].includes(newRole)) {
+      throw new Error('Role can only be changed to planner, manager, or senior manager here');
     }
     const updates = { role: newRole };
-    updates.reports_to_id = newRole === 'manager' ? actingSeniorManagerId : null;
+    updates.reports_to_id = newRole === 'manager' ? actingManagerOrSeniorManagerId : null;
 
     const { error } = await supabaseClient
       .from('coaching_users')

@@ -40,7 +40,9 @@ const TeamManagement = () => {
     loadUsers();
   }, [loadUsers]);
 
+  const isAdmin = user?.role === 'admin';
   const managers = users.filter((u) => u.role === 'manager');
+  const seniorManagers = users.filter((u) => u.role === 'senior_manager');
   const usersById = new Map(users.map((u) => [u.id, u]));
 
   const handleAddUser = async (e) => {
@@ -58,10 +60,16 @@ const TeamManagement = () => {
         role: form.role,
         branch: form.branch.trim(),
         // Planners: whichever manager was picked below (or unassigned).
-        // Managers: always report to the Senior Manager creating them -
-        // an SM only ever manages their own branch, so there's nothing to
-        // pick. Senior Managers/Admins: no manager-side reporting line.
-        reportsToId: form.role === 'planner' ? (form.reportsToId || null) : form.role === 'manager' ? user.id : null,
+        // Managers: report to the Senior Manager creating them - unless
+        // it's an Admin doing the creating, in which case they picked one
+        // below (Admin manages every branch, so there's no single "you"
+        // to default to). Senior Managers/Admins: no manager-side line.
+        reportsToId:
+          form.role === 'planner'
+            ? (form.reportsToId || null)
+            : form.role === 'manager'
+            ? (isAdmin ? (form.reportsToId || null) : user.id)
+            : null,
       });
       toast.success(`${created.full_name} added`);
       setRevealedPassword({ name: created.full_name, username: created.username, tempPassword });
@@ -138,17 +146,27 @@ const TeamManagement = () => {
   // Promotions happen - a planner becomes a manager (and can then have
   // planners assigned under them), or a manager moves back to planner.
   const handleChangeRole = async (targetUser, newRole) => {
-    const verb = newRole === 'manager' ? 'promote' : 'move';
+    const verb = newRole === 'planner' ? 'move' : 'promote';
     const confirmMsg =
       newRole === 'manager'
         ? `Promote ${targetUser.full_name} to Manager? They'll report to you and can have planners assigned to them.`
+        : newRole === 'senior_manager'
+        ? `Promote ${targetUser.full_name} to Senior Manager? They'll manage their own branch and can add or promote people under them.`
         : `Move ${targetUser.full_name} back to Planner? They'll be unassigned from any manager reporting line.`;
     if (!window.confirm(confirmMsg)) return;
 
     setBusyUserId(targetUser.id);
     try {
-      await userService.updateRole(targetUser.id, newRole, user.id);
-      toast.success(`${targetUser.full_name} is ${newRole === 'manager' ? 'now a Manager' : 'now a Planner'}`);
+      // Only auto-assign "reports to me" when a Senior Manager promotes one
+      // of their own planners to manager - unambiguous, since they only
+      // manage their own branch. When Admin does a role change (promoting
+      // to manager, promoting to Senior Manager, or demoting a Senior
+      // Manager back to manager), leave the reporting line unassigned -
+      // Admin can then pick the right Senior Manager from the table.
+      const actingId = !isAdmin && newRole === 'manager' ? user.id : null;
+      await userService.updateRole(targetUser.id, newRole, actingId);
+      const roleLabel = newRole === 'manager' ? 'now a Manager' : newRole === 'senior_manager' ? 'now a Senior Manager' : 'now a Planner';
+      toast.success(`${targetUser.full_name} is ${roleLabel}`);
       loadUsers();
     } catch (error) {
       console.error(`Error trying to ${verb} user:`, error);
@@ -220,6 +238,18 @@ const TeamManagement = () => {
                         <option key={m.id} value={m.id}>{m.full_name}</option>
                       ))}
                     </select>
+                  ) : u.role === 'manager' && isAdmin ? (
+                    <select
+                      className="filter-select"
+                      value={u.reports_to_id || ''}
+                      onChange={(e) => handleReassign(u, e.target.value ? parseInt(e.target.value, 10) : null)}
+                      disabled={busyUserId === u.id}
+                    >
+                      <option value="">Unassigned</option>
+                      {seniorManagers.map((sm) => (
+                        <option key={sm.id} value={sm.id}>{sm.full_name}</option>
+                      ))}
+                    </select>
                   ) : (
                     usersById.get(u.reports_to_id)?.full_name || '—'
                   )}
@@ -238,6 +268,16 @@ const TeamManagement = () => {
                   {u.role === 'manager' && (
                     <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleChangeRole(u, 'planner')}>
                       Move to Planner
+                    </button>
+                  )}
+                  {isAdmin && (u.role === 'planner' || u.role === 'manager') && (
+                    <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleChangeRole(u, 'senior_manager')}>
+                      Promote to Senior Manager
+                    </button>
+                  )}
+                  {isAdmin && u.role === 'senior_manager' && (
+                    <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleChangeRole(u, 'manager')}>
+                      Move to Manager
                     </button>
                   )}
                   <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleResetPassword(u)}>
@@ -295,9 +335,21 @@ const TeamManagement = () => {
               )}
 
               {form.role === 'manager' && (
-                <div className="info-text" style={{ marginTop: '1rem' }}>
-                  Will report to you ({user?.full_name}).
-                </div>
+                isAdmin ? (
+                  <>
+                    <label className="field-label">Reports to (Senior Manager)</label>
+                    <select className="form-control" value={form.reportsToId} onChange={(e) => setForm({ ...form, reportsToId: e.target.value })}>
+                      <option value="">Unassigned</option>
+                      {seniorManagers.map((sm) => (
+                        <option key={sm.id} value={sm.id}>{sm.full_name}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <div className="info-text" style={{ marginTop: '1rem' }}>
+                    Will report to you ({user?.full_name}).
+                  </div>
+                )
               )}
 
               <div className="button-group" style={{ marginTop: '1.5rem' }}>

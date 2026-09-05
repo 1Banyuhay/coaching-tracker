@@ -18,11 +18,15 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has required role
+  // Check if user has required role. Admin sits above Senior Manager,
+  // which sits above Manager - each can do everything the role(s) below
+  // it can, on top of their own routes.
   if (requiredRole) {
-    const hasRole = role === requiredRole || 
-                    (requiredRole === 'manager' && role === 'senior_manager');
-    
+    const hasRole =
+      role === requiredRole ||
+      (requiredRole === 'manager' && (role === 'senior_manager' || role === 'admin')) ||
+      (requiredRole === 'senior_manager' && role === 'admin');
+
     if (!hasRole) {
       // Redirect to appropriate dashboard
       if (role === 'manager' || role === 'senior_manager') {
