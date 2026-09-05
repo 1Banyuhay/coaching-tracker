@@ -15,7 +15,7 @@ const ManagerDashboard = () => {
   const [teamRowsPerPage, setTeamRowsPerPage] = useState(20);
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!user?.id) return;
 
     const loadData = async () => {
       const dashboardData = await dashboardService.getManagerDashboard(user.id);
@@ -24,7 +24,7 @@ const ManagerDashboard = () => {
     };
 
     loadData();
-  }, [profile?.id]);
+  }, [user?.id]);
 
   const filterDataByDateRange = (sessions) => {
     if (!sessions) return [];
