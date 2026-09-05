@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Coaching Hub</title>
+<style>
+body { font-family:sans-serif; background:linear-gradient(135deg,#a85a2b,#9d5220); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.login-container { background:white; border-radius:12px; width:100%; max-width:420px; padding:40px; }
+.form-group { margin-bottom:20px; }
+.form-group input { width:100%; padding:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; }
+.login-button { width:100%; padding:14px; background:linear-gradient(135deg,#a85a2b,#9d5220); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; }
+.error { background:#fee; color:#c32626; padding:12px; margin-bottom:20px; display:none; }
+</style>
+</head>
+<body>
+<div class="login-container">
+<h1>Coaching Hub</h1>
+<div id="error" class="error"></div>
+<form id="loginForm">
+<div class="form-group"><input type="text" id="username" placeholder="Username" required></div>
+<div class="form-group"><input type="password" id="password" placeholder="Password" required></div>
+<button type="submit" class="login-button">Sign In</button>
+</form>
+</div>
+<script>
+const SUPABASE_URL = "https://vszfhpbvzzxijcrrnclh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzemZocGJ2enp4aWpjcnJuY2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzAzMTEsImV4cCI6MjEwMzgwNjMxMX0.p48DdmF9k4nSOdm6Eeag42yZBO1HKZVin2Bhl_MNQ7Q";
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  const errorDiv = document.getElementById("error");
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/coaching_users?select=*", {
+      headers: { "Authorization": "Bearer " + SUPABASE_KEY, "apikey": SUPABASE_KEY }
+    });
+    const users = await res.json();
+    const user = users.find(u => u.username === username && u.password === password);
+    if (!user) { errorDiv.textContent = "Invalid username or password"; errorDiv.style.display = "block"; return; }
+    localStorage.setItem("coachingUser", JSON.stringify(user));
+    window.location.href = "/coaching";
+  } catch (err) {
+    errorDiv.textContent = "Error: " + err.message;
+    errorDiv.style.display = "block";
+  }
+});
+</script>
+</body>
+</html>
