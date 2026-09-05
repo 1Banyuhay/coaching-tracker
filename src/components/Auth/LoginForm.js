@@ -19,10 +19,14 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
+      console.log('Form submit: calling login()');
       await login(username, password);
+      console.log('Login returned, calling navigate()');
       toast.success('Logged in successfully');
       navigate('/');
+      console.log('Navigate called');
     } catch (err) {
+      console.error('LoginForm error:', err);
       const message = err.message || 'Failed to login';
       setError(message);
       toast.error(message);
