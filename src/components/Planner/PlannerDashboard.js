@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService, acknowledgeCoachingRecord } from '../../services/dashboardService';
+import { dashboardService, acknowledgeCoachingRecord, followUpStatus } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import toast from 'react-hot-toast';
 import SummaryModal from '../Layout/SummaryModal';
+import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import '../Manager/ManagerDashboard.css';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -26,6 +27,7 @@ const PlannerDashboard = () => {
   const [data, setData] = useState(null);
   const [activeCard, setActiveCard] = useState(null);
   const [acknowledging, setAcknowledging] = useState(null);
+  const [detailSession, setDetailSession] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -184,16 +186,26 @@ const PlannerDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {records.map((session) => (
-                <tr key={session.id}>
-                  <td><strong>{session.coach_name}</strong></td>
-                  <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.created_at)}</td>
-                  <td>{competencyLabel(session.competency_level)}</td>
-                  <td>{statusBadge(session.status)}</td>
-                  <td>{session.follow_up_date ? formatDate(session.follow_up_date) : '—'}</td>
-                </tr>
-              ))}
+              {records.map((session) => {
+                const due = followUpStatus(session);
+                return (
+                  <tr key={session.id}>
+                    <td><strong>{session.coach_name}</strong></td>
+                    <td>
+                      <button type="button" className="topic-link" onClick={() => setDetailSession(session)}>
+                        {session.topic || 'General'}
+                      </button>
+                    </td>
+                    <td>{formatDate(session.created_at)}</td>
+                    <td>{competencyLabel(session.competency_level)}</td>
+                    <td>{statusBadge(session.status)}</td>
+                    <td>
+                      {session.follow_up_date ? formatDate(session.follow_up_date) : '—'}
+                      {due && <span className={`due-badge due-${due.level}`}>{due.label}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
@@ -210,6 +222,10 @@ const PlannerDashboard = () => {
           emptyMessage={modals[activeCard].emptyMessage}
           onClose={() => setActiveCard(null)}
         />
+      )}
+
+      {detailSession && (
+        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} />
       )}
     </div>
   );

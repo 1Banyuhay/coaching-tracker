@@ -57,7 +57,11 @@ const TeamManagement = () => {
         username: form.username.trim(),
         role: form.role,
         branch: form.branch.trim(),
-        reportsToId: form.reportsToId || null,
+        // Planners: whichever manager was picked below (or unassigned).
+        // Managers: always report to the Senior Manager creating them -
+        // an SM only ever manages their own branch, so there's nothing to
+        // pick. Senior Managers/Admins: no manager-side reporting line.
+        reportsToId: form.role === 'planner' ? (form.reportsToId || null) : form.role === 'manager' ? user.id : null,
       });
       toast.success(`${created.full_name} added`);
       setRevealedPassword({ name: created.full_name, username: created.username, tempPassword });
@@ -126,6 +130,29 @@ const TeamManagement = () => {
     } catch (error) {
       console.error('Error assigning manager:', error);
       toast.error('Failed to update manager');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  // Promotions happen - a planner becomes a manager (and can then have
+  // planners assigned under them), or a manager moves back to planner.
+  const handleChangeRole = async (targetUser, newRole) => {
+    const verb = newRole === 'manager' ? 'promote' : 'move';
+    const confirmMsg =
+      newRole === 'manager'
+        ? `Promote ${targetUser.full_name} to Manager? They'll report to you and can have planners assigned to them.`
+        : `Move ${targetUser.full_name} back to Planner? They'll be unassigned from any manager reporting line.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setBusyUserId(targetUser.id);
+    try {
+      await userService.updateRole(targetUser.id, newRole, user.id);
+      toast.success(`${targetUser.full_name} is ${newRole === 'manager' ? 'now a Manager' : 'now a Planner'}`);
+      loadUsers();
+    } catch (error) {
+      console.error(`Error trying to ${verb} user:`, error);
+      toast.error('Failed to update role');
     } finally {
       setBusyUserId(null);
     }
@@ -203,6 +230,16 @@ const TeamManagement = () => {
                   </span>
                 </td>
                 <td className="team-actions">
+                  {u.role === 'planner' && (
+                    <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleChangeRole(u, 'manager')}>
+                      Promote to Manager
+                    </button>
+                  )}
+                  {u.role === 'manager' && (
+                    <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleChangeRole(u, 'planner')}>
+                      Move to Planner
+                    </button>
+                  )}
                   <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleResetPassword(u)}>
                     Reset Password
                   </button>
@@ -255,6 +292,12 @@ const TeamManagement = () => {
                     ))}
                   </select>
                 </>
+              )}
+
+              {form.role === 'manager' && (
+                <div className="info-text" style={{ marginTop: '1rem' }}>
+                  Will report to you ({user?.full_name}).
+                </div>
               )}
 
               <div className="button-group" style={{ marginTop: '1.5rem' }}>

@@ -5,6 +5,8 @@ import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SummaryModal from '../Layout/SummaryModal';
+import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
+import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import './ManagerDashboard.css';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -24,6 +26,7 @@ const ManagerDashboard = () => {
   const [sessionsRowsPerPage, setSessionsRowsPerPage] = useState(20);
   const [activeCard, setActiveCard] = useState(null);
   const [acknowledging, setAcknowledging] = useState(null);
+  const [detailSession, setDetailSession] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -290,34 +293,13 @@ const ManagerDashboard = () => {
           </div>
         </div>
 
-        {filteredSessions.length > 0 ? (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Planner</th>
-                <th>Topic</th>
-                <th>Coaching Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSessions.slice(0, sessionsRowsPerPage).map((session) => (
-                <tr key={session.id}>
-                  <td><strong>{session.planner_name}</strong></td>
-                  <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.created_at)}</td>
-                  <td>
-                    <span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : session.status === 'coaching_complete' ? 'status-coaching' : 'status-pending'}`}>
-                      {session.status === 'coaching_complete' ? 'Completed' : session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="no-data">No coaching sessions in {dateRange}</div>
-        )}
+        <CoachingSessionsTable
+          sessions={filteredSessions.slice(0, sessionsRowsPerPage)}
+          recipientLabel="Planner"
+          onSelectTopic={setDetailSession}
+          onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Planner' } })}
+          emptyMessage={`No coaching sessions in ${dateRange}`}
+        />
 
         <button type="button" className="cta-button" onClick={() => navigate('/manager/coaching/start')}>
           + START NEW COACHING SESSION
@@ -333,6 +315,10 @@ const ManagerDashboard = () => {
           emptyMessage={modals[activeCard].emptyMessage}
           onClose={() => setActiveCard(null)}
         />
+      )}
+
+      {detailSession && (
+        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} />
       )}
     </div>
   );

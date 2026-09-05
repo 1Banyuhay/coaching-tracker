@@ -1,0 +1,97 @@
+import React from 'react';
+import { formatDate } from '../../utils/dateHelpers';
+import { followUpStatus } from '../../services/dashboardService';
+
+const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
+
+const competencyLabel = (level) => {
+  if (!level) return '—';
+  const rounded = Math.round(level);
+  return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
+};
+
+const statusInfo = (status) => {
+  if (status === 'coaching_complete') return { cls: 'status-coaching', label: 'Completed' };
+  if (status === 'acknowledged') return { cls: 'status-acknowledged', label: 'Acknowledged' };
+  return { cls: 'status-pending', label: 'Pending' };
+};
+
+// Shared coaching-sessions table used across the Manager, Senior Manager
+// and Planner dashboards - Recipient / Topic (clickable) / Competency /
+// Coaching Date / Follow-Up Date (with a due-soon or overdue badge) /
+// Status / an optional "Log Follow-Up" action.
+//
+// `recipientLabel`: header + empty-state wording ("Planner" or "Manager").
+// `onSelectTopic(session)`: opens the coaching detail modal.
+// `onLogFollowUp(session)`: optional - when provided, a "Log Follow-Up"
+//   button appears on any row that has a follow-up date, hasn't already
+//   been followed up on, and isn't already marked complete.
+const CoachingSessionsTable = ({
+  sessions,
+  recipientLabel = 'Planner',
+  onSelectTopic,
+  onLogFollowUp,
+  emptyMessage,
+}) => {
+  if (!sessions || sessions.length === 0) {
+    return <div className="no-data">{emptyMessage || `No coaching sessions with ${recipientLabel.toLowerCase()}s yet`}</div>;
+  }
+
+  return (
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th>{recipientLabel}</th>
+          <th>Topic</th>
+          <th>Competency</th>
+          <th>Coaching Date</th>
+          <th>Follow-Up Date</th>
+          <th>Status</th>
+          {onLogFollowUp && <th></th>}
+        </tr>
+      </thead>
+      <tbody>
+        {sessions.map((session) => {
+          const due = followUpStatus(session);
+          const { cls, label } = statusInfo(session.status);
+          const canLogFollowUp =
+            !!onLogFollowUp &&
+            !!session.follow_up_date &&
+            !session.has_follow_up &&
+            session.status !== 'coaching_complete';
+
+          return (
+            <tr key={session.id}>
+              <td><strong>{session.planner_name}</strong></td>
+              <td>
+                <button type="button" className="topic-link" onClick={() => onSelectTopic(session)}>
+                  {session.topic || 'General'}
+                </button>
+              </td>
+              <td>{competencyLabel(session.competency_level)}</td>
+              <td>{formatDate(session.created_at)}</td>
+              <td>
+                {session.follow_up_date ? formatDate(session.follow_up_date) : '—'}
+                {due && <span className={`due-badge due-${due.level}`}>{due.label}</span>}
+              </td>
+              <td>
+                <span className={`status-badge ${cls}`}>{label}</span>
+              </td>
+              {onLogFollowUp && (
+                <td>
+                  {canLogFollowUp && (
+                    <button type="button" className="action-btn" onClick={() => onLogFollowUp(session)}>
+                      Log Follow-Up
+                    </button>
+                  )}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
+export default CoachingSessionsTable;

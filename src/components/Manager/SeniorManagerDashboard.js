@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { dashboardService } from '../../services/dashboardService';
-import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
+import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
+import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import './ManagerDashboard.css';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -21,7 +22,9 @@ const SeniorManagerDashboard = () => {
   const [data, setData] = useState(null);
   const [dateRange, setDateRange] = useState('MTD');
   const [sessionsRowsPerPage, setSessionsRowsPerPage] = useState(20);
+  const [managerSessionsRowsPerPage, setManagerSessionsRowsPerPage] = useState(20);
   const [activeCard, setActiveCard] = useState(null);
+  const [detailSession, setDetailSession] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -90,6 +93,8 @@ const SeniorManagerDashboard = () => {
 
   const filteredSessions = filterDataByDateRange(data.sessions);
   const sessionRowsOptions = generateRowsOptions(filteredSessions.length);
+  const filteredManagerSessions = filterDataByDateRange(data.managerSessions);
+  const managerSessionRowsOptions = generateRowsOptions(filteredManagerSessions.length);
   const stats = data.stats || {};
   const buckets = data.buckets || { needCoaching: [], acknowledged: [], completed: [] };
 
@@ -110,7 +115,7 @@ const SeniorManagerDashboard = () => {
   const modals = {
     needCoaching: {
       title: 'Need Coaching',
-      subtitle: 'Planners org-wide with 0-1 coaching session so far',
+      subtitle: 'Planners in your branch with 0-1 coaching session so far',
       columns: plannerColumns,
       rows: plannerRows(buckets.needCoaching),
       emptyMessage: 'Every planner has at least 2 sessions',
@@ -130,8 +135,8 @@ const SeniorManagerDashboard = () => {
       emptyMessage: 'No completed cycles yet',
     },
     competency: {
-      title: 'Organization Competency',
-      subtitle: 'Every rated coaching session behind the organization average',
+      title: 'Branch Competency',
+      subtitle: 'Every rated coaching session behind your branch average',
       columns: [
         { key: 'planner_name', label: 'Planner' },
         { key: 'topic', label: 'Topic' },
@@ -143,8 +148,8 @@ const SeniorManagerDashboard = () => {
       emptyMessage: 'No competency ratings recorded yet',
     },
     totalPlanners: {
-      title: 'Total Planners in Organization',
-      subtitle: 'Everyone registered with the planner role',
+      title: 'Total Planners in Your Branch',
+      subtitle: 'Everyone reporting to a manager in your branch',
       columns: [{ key: 'name', label: 'Planner' }, { key: 'branch', label: 'Branch' }],
       rows: [...buckets.needCoaching, ...buckets.acknowledged, ...buckets.completed].map((e) => ({
         id: e.planner.id,
@@ -205,9 +210,52 @@ const SeniorManagerDashboard = () => {
           <div className="metric-detail">
             {stats.totalPlanners
               ? `${stats.coachedAtLeastOnce || 0} of ${stats.totalPlanners} (${stats.pctCoached}%) coached at least once`
-              : 'in organization'}
+              : 'in your branch'}
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">COACHING SESSIONS WITH MANAGERS</h2>
+
+        <div className="filter-controls">
+          <div className="filter-group">
+            <label>Period:</label>
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="filter-select">
+              <option value="MTD">MTD</option>
+              <option value="QTD">QTD</option>
+              <option value="YTD">YTD</option>
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Show:</label>
+            <select
+              value={managerSessionsRowsPerPage}
+              onChange={(e) => setManagerSessionsRowsPerPage(parseInt(e.target.value, 10))}
+              className="filter-select"
+            >
+              {managerSessionRowsOptions.map((num) => (
+                <option key={num} value={num}>{num}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <CoachingSessionsTable
+          sessions={filteredManagerSessions.slice(0, managerSessionsRowsPerPage)}
+          recipientLabel="Manager"
+          onSelectTopic={setDetailSession}
+          onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Manager' } })}
+          emptyMessage={`No coaching sessions with managers in ${dateRange}`}
+        />
+
+        <button
+          type="button"
+          className="cta-button"
+          onClick={() => navigate('/manager/coaching/start', { state: { recipientType: 'manager' } })}
+        >
+          + START COACHING (MANAGER)
+        </button>
       </div>
 
       <div className="card">
@@ -236,34 +284,13 @@ const SeniorManagerDashboard = () => {
           </div>
         </div>
 
-        {filteredSessions.length > 0 ? (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Planner</th>
-                <th>Topic</th>
-                <th>Coaching Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSessions.slice(0, sessionsRowsPerPage).map((session) => (
-                <tr key={session.id}>
-                  <td><strong>{session.planner_name}</strong></td>
-                  <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.created_at)}</td>
-                  <td>
-                    <span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : session.status === 'coaching_complete' ? 'status-coaching' : 'status-pending'}`}>
-                      {session.status === 'coaching_complete' ? 'Completed' : session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="no-data">No coaching sessions in {dateRange}</div>
-        )}
+        <CoachingSessionsTable
+          sessions={filteredSessions.slice(0, sessionsRowsPerPage)}
+          recipientLabel="Planner"
+          onSelectTopic={setDetailSession}
+          onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Planner' } })}
+          emptyMessage={`No coaching sessions in ${dateRange}`}
+        />
 
         <button type="button" className="cta-button" onClick={() => navigate('/manager/coaching/start')}>
           + START NEW COACHING SESSION
@@ -278,6 +305,14 @@ const SeniorManagerDashboard = () => {
           rows={modals[activeCard].rows}
           emptyMessage={modals[activeCard].emptyMessage}
           onClose={() => setActiveCard(null)}
+        />
+      )}
+
+      {detailSession && (
+        <CoachingDetailModal
+          session={detailSession}
+          recipientLabel={data.managerSessions?.some((s) => s.id === detailSession.id) ? 'Manager' : 'Planner'}
+          onClose={() => setDetailSession(null)}
         />
       )}
     </div>

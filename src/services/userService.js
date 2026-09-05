@@ -170,6 +170,32 @@ export const userService = {
     if (error) throw error;
   },
 
+  // Changes an existing person's role - the "promote a planner to manager"
+  // (or move a manager back to planner) case that comes up on real
+  // promotions, without having to delete and recreate the account and lose
+  // their coaching history. Only ever called with newRole 'planner' or
+  // 'manager' - Senior Manager and Admin are not grantable this way.
+  //
+  // Promoting someone to manager sets their reports_to_id to the acting
+  // Senior Manager (the same rule new managers get on creation - a Senior
+  // Manager only ever manages their own branch, so there's no one else to
+  // pick). Moving a manager back to planner clears reports_to_id since
+  // their old planner roster reassigns to someone else, not to them.
+  async updateRole(userId, newRole, actingSeniorManagerId) {
+    if (newRole !== 'planner' && newRole !== 'manager') {
+      throw new Error('Role can only be changed to planner or manager here');
+    }
+    const updates = { role: newRole };
+    updates.reports_to_id = newRole === 'manager' ? actingSeniorManagerId : null;
+
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update(updates)
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
   // Hard delete only makes sense for a user with no coaching history -
   // deleting someone with coaching_records would either fail or destroy
   // real organizational history. Callers should offer "deactivate"

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { userService } from '../../../services/userService';
+import { dashboardService } from '../../../services/dashboardService';
 import { supabaseClient } from '../../../config/supabase';
 import toast from 'react-hot-toast';
 import './CoachingFormWizard.css';
@@ -19,12 +20,29 @@ const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficie
 const CoachingFormWizard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [planners, setPlanners] = useState([]);
-  const [loadingPlanners, setLoadingPlanners] = useState(true);
+  // Two ways this screen is opened besides the plain "+ Start New Coaching
+  // Session" button:
+  //  - recipientType: 'manager' - a Senior Manager coaching one of their
+  //    managers directly, from the "Coaching Sessions With Managers" button.
+  //  - followUpFrom: an existing coaching_records row (with planner_name
+  //    already attached) - opened from a "Log Follow-Up" action on a
+  //    dashboard table row. Recipient is locked to that same person and
+  //    submitting closes the loop on the original record instead of
+  //    creating a standalone one.
+  const forcedRecipientType = location.state?.recipientType === 'manager' ? 'manager' : 'planner';
+  const followUpFrom = location.state?.followUpFrom || null;
+  const recipientType = followUpFrom
+    ? (location.state?.recipientLabel === 'Manager' ? 'manager' : 'planner')
+    : forcedRecipientType;
+  const recipientLabel = recipientType === 'manager' ? 'Manager' : 'Planner';
+
+  const [recipients, setRecipients] = useState([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(!followUpFrom);
   const [submitting, setSubmitting] = useState(false);
 
-  const [plannerId, setPlannerId] = useState('');
+  const [recipientId, setRecipientId] = useState(followUpFrom ? String(followUpFrom.planner_id) : '');
   const [topic, setTopic] = useState('');
   const [customTopic, setCustomTopic] = useState('');
   const [competency, setCompetency] = useState(2);
@@ -35,30 +53,36 @@ const CoachingFormWizard = () => {
   const dashboardPath = user?.role === 'senior_manager' ? '/senior-manager/dashboard' : '/manager/dashboard';
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || followUpFrom) return;
 
-    const loadPlanners = async () => {
+    const loadRecipients = async () => {
       try {
-        const list =
-          user.role === 'senior_manager'
-            ? await userService.getAllPlanners()
-            : await userService.getTeamRoster(user.id);
-        setPlanners(list);
+        let list;
+        if (user.role === 'senior_manager' && recipientType === 'manager') {
+          list = await userService.getManagersForSeniorManager(user.id);
+        } else if (user.role === 'senior_manager') {
+          // Scoped to this Senior Manager's own branch, not every planner
+          // in the organization.
+          list = await userService.getPlannersForSeniorManager(user.id);
+        } else {
+          list = await userService.getTeamRoster(user.id);
+        }
+        setRecipients(list);
       } catch (error) {
-        console.error('Error loading planners:', error);
-        toast.error('Failed to load planners');
+        console.error('Error loading recipients:', error);
+        toast.error(`Failed to load ${recipientLabel.toLowerCase()}s`);
       } finally {
-        setLoadingPlanners(false);
+        setLoadingRecipients(false);
       }
     };
 
-    loadPlanners();
-  }, [user?.id, user?.role]);
+    loadRecipients();
+  }, [user?.id, user?.role, recipientType, followUpFrom, recipientLabel]);
 
   const finalTopic = useMemo(() => (topic === 'Others' ? customTopic.trim() : topic), [topic, customTopic]);
 
   const isComplete =
-    plannerId && finalTopic && discussion.trim() && actionItems.trim() && followUpDate;
+    recipientId && finalTopic && discussion.trim() && actionItems.trim() && followUpDate;
 
   const handleSubmit = async () => {
     if (!isComplete) {
@@ -68,20 +92,28 @@ const CoachingFormWizard = () => {
 
     setSubmitting(true);
     try {
-      const { error } = await supabaseClient.from('coaching_records').insert({
-        planner_id: parseInt(plannerId, 10),
+      const fields = {
+        planner_id: parseInt(recipientId, 10),
         coach_id: user.id,
         topic: finalTopic,
         competency_level: competency,
         discussion_notes: discussion.trim(),
         action_items: actionItems.trim(),
         follow_up_date: followUpDate,
-        status: 'pending',
-      });
+      };
 
-      if (error) throw error;
+      if (followUpFrom) {
+        await dashboardService.logFollowUp(followUpFrom, fields);
+        toast.success('Follow-up logged - the original session is now marked complete.');
+      } else {
+        const { error } = await supabaseClient.from('coaching_records').insert({
+          ...fields,
+          status: 'pending',
+        });
+        if (error) throw error;
+        toast.success('Coaching session saved! Awaiting acknowledgement.');
+      }
 
-      toast.success('Coaching session saved! Awaiting the planner’s acknowledgement.');
       navigate(dashboardPath);
     } catch (error) {
       console.error('Error saving coaching session:', error);
@@ -101,28 +133,34 @@ const CoachingFormWizard = () => {
     <div className="coaching-log">
       <div className="log-header">
         <h1>Coaching Log</h1>
-        <p>Record a coaching session with a planner</p>
+        <p>
+          {followUpFrom
+            ? `Follow-up session with ${followUpFrom.planner_name}`
+            : `Record a coaching session with a ${recipientLabel.toLowerCase()}`}
+        </p>
       </div>
 
       <div className="log-card">
         <div className="log-section">
           <div className="section-header">
             <div className="section-number">1</div>
-            <div className="section-title">Planner</div>
+            <div className="section-title">{recipientLabel}</div>
           </div>
 
-          {loadingPlanners ? (
-            <div className="info-text">Loading planners...</div>
-          ) : planners.length === 0 ? (
+          {followUpFrom ? (
+            <div className="info-text"><strong>{followUpFrom.planner_name}</strong> (locked - continuing a logged follow-up)</div>
+          ) : loadingRecipients ? (
+            <div className="info-text">Loading {recipientLabel.toLowerCase()}s...</div>
+          ) : recipients.length === 0 ? (
             <div className="no-data">
               {user?.role === 'senior_manager'
-                ? 'No planners are registered yet.'
+                ? `No ${recipientLabel.toLowerCase()}s are registered under your branch yet.`
                 : 'No planners are assigned to you yet. Ask your Senior Manager to add you as their manager in Manage Team.'}
             </div>
           ) : (
-            <select className="form-control" value={plannerId} onChange={(e) => setPlannerId(e.target.value)}>
-              <option value="">-- Select a planner --</option>
-              {planners.map((p) => (
+            <select className="form-control" value={recipientId} onChange={(e) => setRecipientId(e.target.value)}>
+              <option value="">-- Select a {recipientLabel.toLowerCase()} --</option>
+              {recipients.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.full_name}{p.branch ? ` (${p.branch})` : ''}
                 </option>
