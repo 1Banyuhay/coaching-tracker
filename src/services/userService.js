@@ -1,4 +1,5 @@
 import { supabaseClient } from '../config/supabase';
+import { hashPassword } from '../utils/passwordHash';
 
 // Characters chosen to avoid visual mix-ups when someone hand-types a temp
 // password off a screen (no 0/O, no 1/I/l).
@@ -59,11 +60,44 @@ export const userService = {
     return data || [];
   },
 
+  // Managers who report to a specific Senior Manager.
+  async getManagersForSeniorManager(seniorManagerId) {
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status')
+      .eq('role', 'manager')
+      .eq('reports_to_id', seniorManagerId)
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Planners two hops down from a Senior Manager: every planner whose
+  // manager reports to this Senior Manager. This is the scope for
+  // "coach a planner directly" and for the Senior Manager's dashboard -
+  // a Senior Manager should only ever see their own branch's people.
+  async getPlannersForSeniorManager(seniorManagerId) {
+    const managers = await this.getManagersForSeniorManager(seniorManagerId);
+    const managerIds = managers.map((m) => m.id);
+    if (managerIds.length === 0) return [];
+
+    const { data, error } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status, reports_to_id')
+      .eq('role', 'planner')
+      .in('reports_to_id', managerIds);
+
+    if (error) throw error;
+    return data || [];
+  },
+
   // Creates a new user with a random temporary password. Returns the
   // created row plus the plaintext temp password (shown once so the
   // Senior Manager can relay it - it is not recoverable after this call).
   async createUser({ fullName, username, role, branch, reportsToId }) {
     const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
 
     const { data, error } = await supabaseClient
       .from('coaching_users')
@@ -74,7 +108,7 @@ export const userService = {
         branch: branch || null,
         reports_to_id: reportsToId || null,
         status: 'active',
-        password: tempPassword,
+        password: passwordHash,
         password_reset_required: true,
       })
       .select()
@@ -93,10 +127,11 @@ export const userService = {
   // Generates and sets a new temporary password for an existing user.
   async resetPassword(userId) {
     const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
 
     const { error } = await supabaseClient
       .from('coaching_users')
-      .update({ password: tempPassword, password_reset_required: true })
+      .update({ password: passwordHash, password_reset_required: true })
       .eq('id', userId);
 
     if (error) throw error;
@@ -106,12 +141,15 @@ export const userService = {
   // A logged-in user setting their own new password (clears the
   // must-change flag so they aren't prompted again).
   async changeOwnPassword(userId, newPassword) {
+    const passwordHash = await hashPassword(newPassword);
+
     const { error } = await supabaseClient
       .from('coaching_users')
-      .update({ password: newPassword, password_reset_required: false })
+      .update({ password: passwordHash, password_reset_required: false })
       .eq('id', userId);
 
     if (error) throw error;
+    return passwordHash;
   },
 
   async setStatus(userId, status) {

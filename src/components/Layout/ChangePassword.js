@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
+import { verifyPassword, isHashed } from '../../utils/passwordHash';
 import toast from 'react-hot-toast';
 import '../Manager/CoachingForm/CoachingFormWizard.css';
 import './ChangePassword.css';
@@ -15,7 +16,14 @@ const ChangePassword = ({ forced = false, onDone }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (currentPassword !== user.password) {
+    // Handles the rare case of an already-open session from before
+    // password hashing existed - login() migrates the hash the moment
+    // someone actually logs in, but a session left open across that
+    // change is still holding the old plain-text value in memory.
+    const currentOk = isHashed(user.password)
+      ? await verifyPassword(currentPassword, user.password)
+      : currentPassword === user.password;
+    if (!currentOk) {
       toast.error('Current password is incorrect');
       return;
     }
@@ -30,8 +38,8 @@ const ChangePassword = ({ forced = false, onDone }) => {
 
     setSaving(true);
     try {
-      await userService.changeOwnPassword(user.id, newPassword);
-      updateStoredUser({ password: newPassword, password_reset_required: false });
+      const newHash = await userService.changeOwnPassword(user.id, newPassword);
+      updateStoredUser({ password: newHash, password_reset_required: false });
       toast.success('Password updated');
       if (onDone) onDone();
     } catch (error) {

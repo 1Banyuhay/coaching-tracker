@@ -32,7 +32,9 @@ function ChangePasswordRoute() {
   const navigate = useNavigate();
   const { role } = useAuth();
   const dashboardPath =
-    role === 'senior_manager' || role === 'manager'
+    role === 'senior_manager'
+      ? '/senior-manager/dashboard'
+      : role === 'manager'
       ? '/manager/dashboard'
       : role === 'planner'
       ? '/planner/dashboard'
@@ -207,7 +209,9 @@ function App() {
               <Route
                 path="/"
                 element={
-                  role === 'manager' || role === 'senior_manager' ? (
+                  role === 'senior_manager' ? (
+                    <Navigate to="/senior-manager/dashboard" replace />
+                  ) : role === 'manager' ? (
                     <Navigate to="/manager/dashboard" replace />
                   ) : role === 'planner' ? (
                     <Navigate to="/planner/dashboard" replace />

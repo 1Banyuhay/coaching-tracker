@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabaseClient } from '../config/supabase';
+import { verifyPassword, isHashed, hashPassword } from '../utils/passwordHash';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -33,10 +34,38 @@ export const useAuth = () => {
         throw new Error('User not found');
       }
 
-      const user = data[0];
+      let user = data[0];
       console.log('User found:', user.username);
-      
-      if (user.password !== password) {
+
+      let passwordOk = false;
+      if (isHashed(user.password)) {
+        passwordOk = await verifyPassword(password, user.password);
+      } else {
+        // Legacy row created before password hashing existed: its
+        // password column is still the plain text value. Compare
+        // directly, and - only on a successful match - transparently
+        // upgrade the stored value to a proper hash so this row never
+        // needs to be checked in plain text again.
+        passwordOk = user.password === password;
+        if (passwordOk) {
+          try {
+            const newHash = await hashPassword(password);
+            const { error: migrateError } = await supabaseClient
+              .from('coaching_users')
+              .update({ password: newHash })
+              .eq('id', user.id);
+            if (!migrateError) {
+              user = { ...user, password: newHash };
+            }
+          } catch (migrateErr) {
+            console.error('Password migration error:', migrateErr);
+            // Non-fatal: login still succeeds even if the silent
+            // upgrade fails, the row just stays plain text for now.
+          }
+        }
+      }
+
+      if (!passwordOk) {
         console.log('Password mismatch');
         throw new Error('Invalid password');
       }

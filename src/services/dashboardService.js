@@ -1,4 +1,5 @@
 import { supabaseClient } from '../config/supabase';
+import { userService } from './userService';
 
 // ---------------------------------------------------------------------
 // Shared helpers
@@ -30,6 +31,28 @@ function attachNames(records, usersById) {
     planner_name: usersById.get(r.planner_id)?.full_name || 'Unknown Planner',
     coach_name: usersById.get(r.coach_id)?.full_name || 'Unknown Coach',
   }));
+}
+
+// Marks each record with has_follow_up: true when some other record's
+// follow_up_of_id points back at it - i.e. the follow-up session already
+// happened. Used to decide whether to show a "Log Follow-Up" action and
+// whether a due/overdue badge still applies.
+async function attachFollowUpInfo(records) {
+  const ids = records.map((r) => r.id).filter((id) => id !== undefined && id !== null);
+  if (ids.length === 0) return records;
+
+  const { data, error } = await supabaseClient
+    .from('coaching_records')
+    .select('follow_up_of_id')
+    .in('follow_up_of_id', ids);
+
+  if (error) {
+    console.error('Error fetching follow-up info:', error);
+    return records.map((r) => ({ ...r, has_follow_up: false }));
+  }
+
+  const followedUpIds = new Set((data || []).map((r) => r.follow_up_of_id));
+  return records.map((r) => ({ ...r, has_follow_up: followedUpIds.has(r.id) }));
 }
 
 // Group a scope of planners and their coaching_records into progress buckets.
@@ -99,6 +122,41 @@ export async function acknowledgeCoachingRecord(recordId) {
   if (error) throw error;
 }
 
+// Logs a brand-new coaching_records row as the follow-up to an earlier one,
+// then marks the original 'coaching_complete' - this is the "opened the
+// follow-up and it counted" path. Whether it happened on or before the
+// original follow_up_date is purely a UI badge (see followUpStatus below);
+// logging late still completes the cycle, it just won't have been on time.
+export async function logFollowUp(originalRecord, newRecordFields) {
+  const { error: insertError } = await supabaseClient.from('coaching_records').insert({
+    ...newRecordFields,
+    follow_up_of_id: originalRecord.id,
+    status: 'pending',
+  });
+  if (insertError) throw insertError;
+
+  const { error: updateError } = await supabaseClient
+    .from('coaching_records')
+    .update({ status: 'coaching_complete', updated_at: new Date().toISOString() })
+    .eq('id', originalRecord.id);
+  if (updateError) throw updateError;
+}
+
+// Due-date badge state for a record's follow_up_date. Returns null when
+// there's nothing to flag (no date, already completed, or already
+// followed up).
+export function followUpStatus(record) {
+  if (!record.follow_up_date || record.status === 'coaching_complete' || record.has_follow_up) {
+    return null;
+  }
+  const due = new Date(record.follow_up_date);
+  const now = new Date();
+  const diffDays = Math.ceil((due.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+  if (diffDays < 0) return { level: 'overdue', label: `${Math.abs(diffDays)}d overdue` };
+  if (diffDays <= 7) return { level: 'due-soon', label: diffDays === 0 ? 'Due today' : `Due in ${diffDays}d` };
+  return null;
+}
+
 // ---------------------------------------------------------------------
 
 export const dashboardService = {
@@ -137,6 +195,7 @@ export const dashboardService = {
       ]);
 
       const buckets = categorizePlanners(roster, givenRecords);
+      const sessionsWithFollowUp = await attachFollowUpInfo(givenRecords);
 
       return {
         stats: {
@@ -150,7 +209,7 @@ export const dashboardService = {
           pctCoached: buckets.pctCoached,
         },
         buckets,
-        sessions: attachNames(givenRecords, usersById),
+        sessions: attachNames(sessionsWithFollowUp, usersById),
         needActionSessions: attachNames(incomingRecords, usersById),
       };
     } catch (error) {
@@ -166,19 +225,27 @@ export const dashboardService = {
 
   async getSeniorManagerDashboard(userId) {
     try {
-      const { data: allPlannersRaw } = await supabaseClient
-        .from('coaching_users')
-        .select('id, full_name, role, branch')
-        .eq('role', 'planner');
+      // Scoped to this Senior Manager's own branch: their managers, and
+      // those managers' planners - not every planner in the organization.
+      const managers = await userService.getManagersForSeniorManager(userId);
+      const managerIds = managers.map((m) => m.id);
 
-      const planners = allPlannersRaw || [];
+      const { data: plannersRaw } = managerIds.length
+        ? await supabaseClient
+            .from('coaching_users')
+            .select('id, full_name, role, branch')
+            .eq('role', 'planner')
+            .in('reports_to_id', managerIds)
+        : { data: [] };
+
+      const planners = plannersRaw || [];
       const plannerIds = planners.map((p) => p.id);
 
-      const { data: orgRecordsRaw } = plannerIds.length
+      const { data: scopedRecordsRaw } = plannerIds.length
         ? await supabaseClient.from('coaching_records').select('*').in('planner_id', plannerIds)
         : { data: [] };
 
-      const orgRecords = orgRecordsRaw || [];
+      const scopedRecords = scopedRecordsRaw || [];
 
       const { data: ownRecordsRaw } = await supabaseClient
         .from('coaching_records')
@@ -188,11 +255,17 @@ export const dashboardService = {
       const ownRecords = ownRecordsRaw || [];
 
       const usersById = await getUsersByIds([
-        ...planners.map((p) => p.id),
+        ...managerIds,
+        ...plannerIds,
         ...ownRecords.map((r) => r.coach_id),
       ]);
 
-      const buckets = categorizePlanners(planners, orgRecords);
+      const buckets = categorizePlanners(planners, scopedRecords);
+      const ownWithFollowUp = await attachFollowUpInfo(ownRecords);
+      const named = attachNames(ownWithFollowUp, usersById);
+
+      const managerSessions = named.filter((s) => usersById.get(s.planner_id)?.role === 'manager');
+      const plannerSessions = named.filter((s) => usersById.get(s.planner_id)?.role !== 'manager');
 
       return {
         stats: {
@@ -205,14 +278,18 @@ export const dashboardService = {
           pctCoached: buckets.pctCoached,
         },
         buckets,
-        sessions: attachNames(ownRecords, usersById),
+        managers,
+        sessions: plannerSessions,
+        managerSessions,
       };
     } catch (error) {
       console.error('Error fetching senior manager dashboard:', error);
       return {
         stats: {},
         buckets: { needCoaching: [], acknowledged: [], completed: [] },
+        managers: [],
         sessions: [],
+        managerSessions: [],
       };
     }
   },
@@ -224,7 +301,7 @@ export const dashboardService = {
         .select('*')
         .eq('planner_id', userId);
 
-      const records = recordsRaw || [];
+      const records = await attachFollowUpInfo(recordsRaw || []);
       const needAction = records.filter((r) => r.status === 'pending');
       const acknowledged = records.filter((r) => r.status === 'acknowledged');
       const completed = records.filter((r) => r.status === 'coaching_complete');
