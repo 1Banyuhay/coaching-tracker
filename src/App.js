@@ -12,6 +12,7 @@ import LoginForm from './components/Auth/LoginForm';
 
 // Manager Pages
 import ManagerDashboard from './components/Manager/ManagerDashboard';
+import SeniorManagerDashboard from './components/Manager/SeniorManagerDashboard';
 import CoachingFormWizard from './components/Manager/CoachingForm/CoachingFormWizard';
 import PlannerProfile from './components/Manager/PlannerProfile';
 
@@ -72,6 +73,15 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="manager">
                     <CoachingFormWizard />
+              {/* Senior Manager Routes */}
+              <Route
+                path="/senior-manager/dashboard"
+                element={
+                  <ProtectedRoute requiredRole="senior_manager">
+                    <SeniorManagerDashboard />
+                  </ProtectedRoute>
+                }
+              />
                   </ProtectedRoute>
                 }
               />
