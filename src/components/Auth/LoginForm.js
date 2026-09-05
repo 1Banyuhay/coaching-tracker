@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import './Auth.css';
 
 const LoginForm = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,7 +19,7 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(username, password);
       toast.success('Logged in successfully');
       navigate('/');
     } catch (err) {
@@ -35,18 +35,18 @@ const LoginForm = () => {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <h1>Coaching Tracker</h1>
+          <h1>Coaching Hub</h1>
           <p>Sign in to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
-            <label>Email Address</label>
+            <label>Username</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g., mikko.rodriguez"
               required
               disabled={loading}
             />
@@ -73,6 +73,7 @@ const LoginForm = () => {
         </form>
 
         <div className="login-footer">
+          <p>Demo credentials: mikko.rodriguez / SmartCoach2024!</p>
         </div>
       </div>
     </div>
