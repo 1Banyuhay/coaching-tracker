@@ -17,6 +17,7 @@ import SeniorManagerDashboard from './components/Manager/SeniorManagerDashboard'
 import CoachingFormWizard from './components/Manager/CoachingForm/CoachingFormWizard';
 import PlannerProfile from './components/Manager/PlannerProfile';
 import TeamManagement from './components/Manager/TeamManagement';
+import UsefulLinksPage from './components/Layout/UsefulLinksPage';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
@@ -204,6 +205,16 @@ function App() {
 
               {/* Account */}
               <Route path="/account/password" element={<ChangePasswordRoute />} />
+
+              {/* Useful Links - shared across every role */}
+              <Route
+                path="/links"
+                element={
+                  <ProtectedRoute>
+                    <UsefulLinksPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Default Routes */}
               <Route

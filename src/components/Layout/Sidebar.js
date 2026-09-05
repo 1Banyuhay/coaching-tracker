@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, FileText, Users, Settings, CheckCircle2, BookOpen, X } from 'lucide-react';
+import { BarChart3, FileText, Users, Settings, CheckCircle2, BookOpen, Link2, X } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ role }) => {
@@ -25,6 +25,11 @@ const Sidebar = ({ role }) => {
             path: '/senior-manager/team',
             icon: <Users size={20} />,
           },
+          {
+            label: 'Useful Links',
+            path: '/links',
+            icon: <Link2 size={20} />,
+          },
         ];
 
       case 'manager':
@@ -44,6 +49,11 @@ const Sidebar = ({ role }) => {
             path: '/manager/planners',
             icon: <Users size={20} />,
           },
+          {
+            label: 'Useful Links',
+            path: '/links',
+            icon: <Link2 size={20} />,
+          },
         ];
 
       case 'planner':
@@ -57,6 +67,11 @@ const Sidebar = ({ role }) => {
             label: 'Pending Confirmations',
             path: '/planner/confirmations',
             icon: <CheckCircle2 size={20} />,
+          },
+          {
+            label: 'Useful Links',
+            path: '/links',
+            icon: <Link2 size={20} />,
           },
         ];
 
@@ -81,6 +96,11 @@ const Sidebar = ({ role }) => {
             label: 'Settings',
             path: '/admin/settings',
             icon: <Settings size={20} />,
+          },
+          {
+            label: 'Useful Links',
+            path: '/links',
+            icon: <Link2 size={20} />,
           },
         ];
 
