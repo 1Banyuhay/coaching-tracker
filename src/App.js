@@ -73,12 +73,6 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="manager">
                     <CoachingFormWizard />
-              {/* Senior Manager Routes */}
-              <Route
-                path="/senior-manager/dashboard"
-                element={
-                  <ProtectedRoute requiredRole="senior_manager">
-                    <SeniorManagerDashboard />
                   </ProtectedRoute>
                 }
               />
@@ -88,9 +82,6 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="senior_manager">
                     <SeniorManagerDashboard />
-                  </ProtectedRoute>
-                }
-              />
                   </ProtectedRoute>
                 }
               />
