@@ -35,7 +35,7 @@ const ManagerDashboard = () => {
     const currentQuarter = Math.floor(currentMonth / 3);
 
     return sessions.filter(session => {
-      const sessionDate = new Date(session.coaching_date);
+      const sessionDate = new Date(session.created_at);
       const sessionYear = sessionDate.getFullYear();
       const sessionMonth = sessionDate.getMonth();
       const sessionQuarter = Math.floor(sessionMonth / 3);
@@ -164,7 +164,7 @@ const ManagerDashboard = () => {
                   <tr key={session.id}>
                     <td><strong>Senior Manager</strong></td>
                     <td className="topic-name">{session.topic || 'Leadership Development'}</td>
-                    <td>{formatDate(session.coaching_date)}</td>
+                    <td>{formatDate(session.created_at)}</td>
                     <td><span className="status-badge status-pending">{session.status === 'pending' ? 'Pending' : 'Acknowledged'}</span></td>
                   </tr>
                 ))}
@@ -211,7 +211,7 @@ const ManagerDashboard = () => {
                 <tr key={session.id}>
                   <td><strong>{session.planner_name || 'Planner'}</strong></td>
                   <td className="topic-name">{session.topic || 'General'}</td>
-                  <td>{formatDate(session.coaching_date)}</td>
+                  <td>{formatDate(session.created_at)}</td>
                   <td><span className={`status-badge ${session.status === 'acknowledged' ? 'status-acknowledged' : 'status-pending'}`}>{session.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}</span></td>
                 </tr>
               ))}
