@@ -28,25 +28,30 @@ export const dashboardService = {
 
   async getSeniorManagerDashboard(userId) {
     try {
-      const { data: records } = await supabaseClient
-        .from('coaching_records')
-        .select('*')
-        .eq('coach_id', userId);
+      const [{ data: records }, { count: totalPlannersInOrg }] = await Promise.all([
+        supabaseClient
+          .from('coaching_records')
+          .select('*')
+          .eq('coach_id', userId),
+        supabaseClient
+          .from('coaching_users')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'planner'),
+      ]);
 
       return {
         stats: {
-          totalPlanners: 0,
+          totalPlannersInOrg: totalPlannersInOrg || 0,
           plannersCoached: records?.length || 0,
           pendingSessions: records?.filter(r => r.status === 'pending').length || 0,
           acknowledgedSessions: records?.filter(r => r.status === 'acknowledged').length || 0,
           completedSessions: records?.filter(r => r.status === 'coaching_complete').length || 0,
         },
         sessions: records || [],
-        planners: []
       };
     } catch (error) {
       console.error('Error fetching senior manager dashboard:', error);
-      return { stats: {}, sessions: [], planners: [] };
+      return { stats: {}, sessions: [] };
     }
   },
 
