@@ -1,0 +1,7 @@
+name = "coaching-tracker"
+main = "public/index.html"
+compatibility_date = "2024-01-01"
+
+[build]
+command = ""
+cwd = ""
