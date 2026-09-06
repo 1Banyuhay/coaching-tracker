@@ -126,11 +126,54 @@ const TeamManagement = () => {
     }
   };
 
+  // Saves a JSON copy of someone's coaching history to the browser's
+  // downloads before it's gone for good - the "wipe it, but keep a copy"
+  // safety net for deleting a planner with real history attached.
+  const downloadRecordsBackup = (targetUser, records) => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      planner: {
+        id: targetUser.id,
+        username: targetUser.username,
+        fullName: targetUser.full_name,
+        branch: targetUser.branch,
+      },
+      coachingRecords: records,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${targetUser.username}-coaching-records-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleDelete = async (targetUser) => {
-    if (!window.confirm(`Permanently delete ${targetUser.full_name}? This cannot be undone.`)) return;
+    // Deleting a Planner is allowed to wipe their coaching history - but
+    // only after a backup of it has been downloaded to this browser, so
+    // the record still exists somewhere even once it's gone from the
+    // system. Manager/Senior Manager/Admin accounts keep the stricter
+    // behavior (blocked while they have history - deactivate instead).
+    const isPlanner = targetUser.role === 'planner';
+    const confirmMsg = isPlanner
+      ? `Permanently delete ${targetUser.full_name}? Their coaching records (if any) will be downloaded to your computer first as a backup, then wiped from the system. This cannot be undone.`
+      : `Permanently delete ${targetUser.full_name}? This cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
     setBusyUserId(targetUser.id);
     try {
-      await userService.deleteUser(targetUser.id);
+      if (isPlanner) {
+        const records = await userService.getCoachingRecordsForUser(targetUser.id);
+        if (records.length > 0) {
+          downloadRecordsBackup(targetUser, records);
+        }
+        await userService.deleteUser(targetUser.id, { force: true });
+      } else {
+        await userService.deleteUser(targetUser.id);
+      }
       toast.success(`${targetUser.full_name} deleted`);
       loadUsers();
     } catch (error) {
@@ -214,7 +257,7 @@ const TeamManagement = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 className="section-title">ALL USERS</h2>
           <button type="button" className="cta-button" style={{ marginTop: 0 }} onClick={() => setShowAddForm(true)}>
-            + ADD PERSON
+            {isAdmin ? '+ ADD PERSON' : '+ ADD PLANNER'}
           </button>
         </div>
 
@@ -314,7 +357,7 @@ const TeamManagement = () => {
         <div className="summary-modal-overlay" onClick={() => setShowAddForm(false)}>
           <div className="summary-modal" onClick={(e) => e.stopPropagation()}>
             <div className="summary-modal-header">
-              <h2>Add Person</h2>
+              <h2>{isAdmin ? 'Add Person' : 'Add Planner'}</h2>
               <button className="summary-modal-close" onClick={() => setShowAddForm(false)}>×</button>
             </div>
             <form className="summary-modal-body team-form" onSubmit={handleAddUser}>
@@ -324,15 +367,15 @@ const TeamManagement = () => {
               <label className="field-label">Username</label>
               <input className="form-control" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. juan.delacruz" />
 
-              <label className="field-label">Role</label>
-              <select className="form-control" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value, reportsToId: '' })}>
-                <option value="planner">Planner</option>
-                <option value="manager">Manager</option>
-                {isAdmin && <option value="senior_manager">Senior Manager</option>}
-              </select>
-
               {isAdmin && (
                 <>
+                  <label className="field-label">Role</label>
+                  <select className="form-control" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value, reportsToId: '' })}>
+                    <option value="planner">Planner</option>
+                    <option value="manager">Manager</option>
+                    <option value="senior_manager">Senior Manager</option>
+                  </select>
+
                   <label className="field-label">Branch</label>
                   <input className="form-control" value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} placeholder="e.g. Bagani" />
                 </>

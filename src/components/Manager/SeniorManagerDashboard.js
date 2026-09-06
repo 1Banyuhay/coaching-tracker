@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService } from '../../services/dashboardService';
+import { dashboardService, sessionEffectiveDate } from '../../services/dashboardService';
 import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
 import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
@@ -48,7 +48,7 @@ const SeniorManagerDashboard = () => {
     const currentQuarter = Math.floor(currentMonth / 3);
 
     return sessions.filter((session) => {
-      const sessionDate = new Date(session.created_at);
+      const sessionDate = new Date(sessionEffectiveDate(session));
       const sessionYear = sessionDate.getFullYear();
       const sessionMonth = sessionDate.getMonth();
       const sessionQuarter = Math.floor(sessionMonth / 3);

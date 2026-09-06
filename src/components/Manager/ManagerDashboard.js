@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService, acknowledgeCoachingRecord } from '../../services/dashboardService';
+import { dashboardService, acknowledgeCoachingRecord, sessionEffectiveDate } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -49,7 +49,7 @@ const ManagerDashboard = () => {
     const currentQuarter = Math.floor(currentMonth / 3);
 
     return sessions.filter((session) => {
-      const sessionDate = new Date(session.created_at);
+      const sessionDate = new Date(sessionEffectiveDate(session));
       const sessionYear = sessionDate.getFullYear();
       const sessionMonth = sessionDate.getMonth();
       const sessionQuarter = Math.floor(sessionMonth / 3);

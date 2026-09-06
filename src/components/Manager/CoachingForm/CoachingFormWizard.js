@@ -52,6 +52,12 @@ const CoachingFormWizard = () => {
 
   const dashboardPath = user?.role === 'senior_manager' ? '/senior-manager/dashboard' : '/manager/dashboard';
 
+  // A follow-up can only be scheduled within the next 15 days - far enough
+  // out to be useful, not so far that it stops meaning anything by the
+  // time it's due. Can't be scheduled in the past either.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const maxFollowUpStr = new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10);
+
   useEffect(() => {
     if (!user?.id || followUpFrom) return;
 
@@ -244,9 +250,14 @@ const CoachingFormWizard = () => {
             id="followup-date"
             type="date"
             className="form-control"
+            min={todayStr}
+            max={maxFollowUpStr}
             value={followUpDate}
             onChange={(e) => setFollowUpDate(e.target.value)}
           />
+          <div className="info-text" style={{ marginTop: '0.35rem' }}>
+            Choose a date within the next 15 days.
+          </div>
         </div>
 
         <div className="status-bar">

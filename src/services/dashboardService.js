@@ -188,6 +188,19 @@ export function followUpCounts(sessions) {
   return counts;
 }
 
+// Which date a session should be counted under for the MTD/QTD/YTD period
+// filter. A session that's still open counts under when it was logged
+// (created_at). One that's been completed counts under when it was
+// actually completed (updated_at, set the moment its follow-up was
+// logged) instead - a follow-up can land in a later month, quarter, or
+// even year than the original session, and it's the completion that
+// should show up in that later period, not the original one.
+export function sessionEffectiveDate(session) {
+  return session.status === 'coaching_complete' && session.updated_at
+    ? session.updated_at
+    : session.created_at;
+}
+
 // ---------------------------------------------------------------------
 
 export const dashboardService = {
@@ -197,10 +210,14 @@ export const dashboardService = {
       // this manager - not just whoever they happen to have coached. That
       // is what makes "Need Coaching" (0 sessions) and the coached-% stat
       // meaningful instead of self-fulfilling.
+      // Only active planners count as "your team" here - a deactivated
+      // planner drops out of the roster (and its stats) until reactivated,
+      // though their past coaching history stays intact in the database.
       const { data: rosterRaw } = await supabaseClient
         .from('coaching_users')
         .select('id, full_name, role, branch')
         .eq('role', 'planner')
+        .eq('status', 'active')
         .eq('reports_to_id', userId);
 
       const roster = rosterRaw || [];
@@ -261,11 +278,14 @@ export const dashboardService = {
       const managers = await userService.getManagersForSeniorManager(userId);
       const managerIds = managers.map((m) => m.id);
 
+      // Only active planners count toward the branch roster/stats - see
+      // the same note in getManagerDashboard above.
       const { data: plannersRaw } = managerIds.length
         ? await supabaseClient
             .from('coaching_users')
             .select('id, full_name, role, branch, reports_to_id')
             .eq('role', 'planner')
+            .eq('status', 'active')
             .in('reports_to_id', managerIds)
         : { data: [] };
 

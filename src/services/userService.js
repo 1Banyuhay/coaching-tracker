@@ -27,11 +27,14 @@ export const userService = {
   },
 
   // Planners assigned to a specific manager (reports_to_id = managerId).
+  // Active only - a deactivated planner shouldn't be pickable as a new
+  // coaching session's recipient.
   async getTeamRoster(managerId) {
     const { data, error } = await supabaseClient
       .from('coaching_users')
       .select('id, username, full_name, role, branch, status')
       .eq('role', 'planner')
+      .eq('status', 'active')
       .eq('reports_to_id', managerId);
 
     if (error) throw error;
@@ -86,6 +89,7 @@ export const userService = {
       .from('coaching_users')
       .select('id, username, full_name, role, branch, status, reports_to_id')
       .eq('role', 'planner')
+      .eq('status', 'active')
       .in('reports_to_id', managerIds);
 
     if (error) throw error;
@@ -234,11 +238,30 @@ export const userService = {
     if (error) throw error;
   },
 
+  // Every coaching_records row this person appears in, either side -
+  // what a "delete and download a backup first" flow needs to export
+  // before the rows are gone for good.
+  async getCoachingRecordsForUser(userId) {
+    const { data, error } = await supabaseClient
+      .from('coaching_records')
+      .select('*')
+      .or(`planner_id.eq.${userId},coach_id.eq.${userId}`);
+
+    if (error) throw error;
+    return data || [];
+  },
+
   // Hard delete only makes sense for a user with no coaching history -
   // deleting someone with coaching_records would either fail or destroy
   // real organizational history. Callers should offer "deactivate"
   // instead when this throws.
-  async deleteUser(userId) {
+  //
+  // { force: true } skips that guard and wipes the person's coaching
+  // history along with their account instead of blocking - meant for
+  // "delete this planner anyway", where the caller has already downloaded
+  // a backup of their records (see getCoachingRecordsForUser) before
+  // calling this.
+  async deleteUser(userId, { force = false } = {}) {
     const { count: coachCount } = await supabaseClient
       .from('coaching_records')
       .select('id', { count: 'exact', head: true })
@@ -248,10 +271,20 @@ export const userService = {
       .select('id', { count: 'exact', head: true })
       .eq('planner_id', userId);
 
-    if ((coachCount || 0) > 0 || (plannerCount || 0) > 0) {
+    const hasHistory = (coachCount || 0) > 0 || (plannerCount || 0) > 0;
+
+    if (hasHistory && !force) {
       throw new Error(
         'This person has coaching history attached to their account. Deactivate them instead of deleting, so that history is preserved.'
       );
+    }
+
+    if (hasHistory && force) {
+      // Clear their coaching history first so the account delete below
+      // doesn't fail on it - the caller is expected to have already saved
+      // a copy of these rows.
+      await supabaseClient.from('coaching_records').delete().eq('planner_id', userId);
+      await supabaseClient.from('coaching_records').delete().eq('coach_id', userId);
     }
 
     const { error } = await supabaseClient.from('coaching_users').delete().eq('id', userId);

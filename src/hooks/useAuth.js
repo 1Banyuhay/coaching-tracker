@@ -70,6 +70,14 @@ export const useAuth = () => {
         throw new Error('Invalid password');
       }
 
+      // Checked after the password so a wrong guess never reveals whether
+      // an account has been deactivated - only someone who already knows
+      // the password learns that.
+      if (user.status === 'inactive') {
+        console.log('Account is deactivated');
+        throw new Error('This account has been deactivated. Contact your administrator.');
+      }
+
       console.log('Login successful!');
       setUser(user);
       localStorage.setItem('coachingUser', JSON.stringify(user));
