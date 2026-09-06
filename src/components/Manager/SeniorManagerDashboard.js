@@ -274,7 +274,7 @@ const SeniorManagerDashboard = () => {
           className="cta-button"
           onClick={() => navigate('/manager/coaching/start', { state: { recipientType: 'manager' } })}
         >
-          + START COACHING (MANAGER)
+          + START NEW COACHING SESSION
         </button>
       </div>
 

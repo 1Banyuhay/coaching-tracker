@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, FileText, Users, Settings, CheckCircle2, BookOpen, Link2, X } from 'lucide-react';
+import { BarChart3, Users, Settings, CheckCircle2, BookOpen, Link2, X } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ role }) => {
@@ -14,11 +14,6 @@ const Sidebar = ({ role }) => {
             label: 'Dashboard',
             path: '/senior-manager/dashboard',
             icon: <BarChart3 size={20} />,
-          },
-          {
-            label: 'Start Coaching',
-            path: '/manager/coaching/start',
-            icon: <FileText size={20} />,
           },
           {
             label: 'Manage Team',
@@ -38,11 +33,6 @@ const Sidebar = ({ role }) => {
             label: 'Dashboard',
             path: '/manager/dashboard',
             icon: <BarChart3 size={20} />,
-          },
-          {
-            label: 'Start Coaching',
-            path: '/manager/coaching/start',
-            icon: <FileText size={20} />,
           },
           {
             label: 'My Planners',
@@ -91,11 +81,6 @@ const Sidebar = ({ role }) => {
             label: 'Manage Team',
             path: '/senior-manager/team',
             icon: <Users size={20} />,
-          },
-          {
-            label: 'Start Coaching',
-            path: '/manager/coaching/start',
-            icon: <FileText size={20} />,
           },
           {
             label: 'Settings',

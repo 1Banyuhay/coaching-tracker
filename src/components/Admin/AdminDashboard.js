@@ -88,6 +88,10 @@ const AdminDashboard = () => {
       </div>
 
       <div className="quick-links">
+        <button type="button" className="quick-link-card" onClick={() => navigate('/manager/coaching/start')}>
+          <h3>Start Coaching</h3>
+          <p>Log a coaching session with a manager or planner</p>
+        </button>
         <button type="button" className="quick-link-card" onClick={() => navigate('/senior-manager/team')}>
           <h3>Manage Team</h3>
           <p>Add people, promote, reset passwords, assign reporting lines</p>
