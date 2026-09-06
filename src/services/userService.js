@@ -92,6 +92,39 @@ export const userService = {
     return data || [];
   },
 
+  // Everyone in a Senior Manager's own branch for "Manage Team" - the
+  // managers reporting to them, and the planners reporting to those
+  // managers. Deliberately never includes other Senior Managers or Admin:
+  // a Senior Manager only ever manages their own branch.
+  async getBranchTeam(seniorManagerId) {
+    const { data: managersRaw, error: managersError } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status, reports_to_id, password_reset_required, created_at')
+      .eq('role', 'manager')
+      .eq('reports_to_id', seniorManagerId);
+
+    if (managersError) throw managersError;
+    const managers = managersRaw || [];
+    const managerIds = managers.map((m) => m.id);
+
+    let planners = [];
+    if (managerIds.length > 0) {
+      const { data, error } = await supabaseClient
+        .from('coaching_users')
+        .select('id, username, full_name, role, branch, status, reports_to_id, password_reset_required, created_at')
+        .eq('role', 'planner')
+        .in('reports_to_id', managerIds);
+
+      if (error) throw error;
+      planners = data || [];
+    }
+
+    return [...managers, ...planners].sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+      return a.full_name.localeCompare(b.full_name);
+    });
+  },
+
   // Creates a new user with a random temporary password. Returns the
   // created row plus the plaintext temp password (shown once so the
   // Senior Manager can relay it - it is not recoverable after this call).

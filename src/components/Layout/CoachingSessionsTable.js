@@ -26,12 +26,17 @@ const statusInfo = (status) => {
 // `onLogFollowUp(session)`: optional - when provided, a "Log Follow-Up"
 //   button appears on any row that has a follow-up date, hasn't already
 //   been followed up on, and isn't already marked complete.
+// `coachColumnLabel`: optional - when provided, adds a column (right after
+//   the recipient) showing who coached that session (session.coach_name).
+//   Used on the Senior Manager's "Coaching Sessions with Planners" table,
+//   where the coach could be any of several Managers, not just one person.
 const CoachingSessionsTable = ({
   sessions,
   recipientLabel = 'Planner',
   onSelectTopic,
   onLogFollowUp,
   emptyMessage,
+  coachColumnLabel,
 }) => {
   if (!sessions || sessions.length === 0) {
     return <div className="no-data">{emptyMessage || `No coaching sessions with ${recipientLabel.toLowerCase()}s yet`}</div>;
@@ -42,6 +47,7 @@ const CoachingSessionsTable = ({
       <thead>
         <tr>
           <th>{recipientLabel}</th>
+          {coachColumnLabel && <th>{coachColumnLabel}</th>}
           <th>Topic</th>
           <th>Competency</th>
           <th>Coaching Date</th>
@@ -59,6 +65,7 @@ const CoachingSessionsTable = ({
           return (
             <tr key={session.id}>
               <td><strong>{session.planner_name}</strong></td>
+              {coachColumnLabel && <td>{session.coach_name || '—'}</td>}
               <td>
                 <button type="button" className="topic-link" onClick={() => onSelectTopic(session)}>
                   {session.topic || 'General'}

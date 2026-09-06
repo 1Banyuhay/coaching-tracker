@@ -264,7 +264,7 @@ export const dashboardService = {
       const { data: plannersRaw } = managerIds.length
         ? await supabaseClient
             .from('coaching_users')
-            .select('id, full_name, role, branch')
+            .select('id, full_name, role, branch, reports_to_id')
             .eq('role', 'planner')
             .in('reports_to_id', managerIds)
         : { data: [] };
@@ -272,31 +272,43 @@ export const dashboardService = {
       const planners = plannersRaw || [];
       const plannerIds = planners.map((p) => p.id);
 
+      // Every coaching session logged with a planner in this branch,
+      // regardless of who coached them - a Manager coaching their own
+      // roster, or this Senior Manager stepping in directly. This is what
+      // lets "Coaching Sessions with Planners" show a Manager column.
       const { data: scopedRecordsRaw } = plannerIds.length
         ? await supabaseClient.from('coaching_records').select('*').in('planner_id', plannerIds)
         : { data: [] };
 
       const scopedRecords = scopedRecordsRaw || [];
 
-      const { data: ownRecordsRaw } = await supabaseClient
-        .from('coaching_records')
-        .select('*')
-        .eq('coach_id', userId);
+      // Sessions where this Senior Manager coached a Manager directly -
+      // the only source for "Coaching Sessions with Managers", since
+      // nobody else ever coaches a Manager.
+      const { data: ownManagerRecordsRaw } = managerIds.length
+        ? await supabaseClient
+            .from('coaching_records')
+            .select('*')
+            .eq('coach_id', userId)
+            .in('planner_id', managerIds)
+        : { data: [] };
 
-      const ownRecords = ownRecordsRaw || [];
+      const ownManagerRecords = ownManagerRecordsRaw || [];
 
       const usersById = await getUsersByIds([
+        userId,
         ...managerIds,
         ...plannerIds,
-        ...ownRecords.map((r) => r.coach_id),
+        ...scopedRecords.map((r) => r.coach_id),
       ]);
 
       const buckets = categorizePlanners(planners, scopedRecords);
-      const ownWithFollowUp = await attachFollowUpInfo(ownRecords);
-      const named = attachNames(ownWithFollowUp, usersById);
 
-      const managerSessions = named.filter((s) => usersById.get(s.planner_id)?.role === 'manager');
-      const plannerSessions = named.filter((s) => usersById.get(s.planner_id)?.role !== 'manager');
+      const plannerSessionsWithFollowUp = await attachFollowUpInfo(scopedRecords);
+      const plannerSessions = attachNames(plannerSessionsWithFollowUp, usersById);
+
+      const managerSessionsWithFollowUp = await attachFollowUpInfo(ownManagerRecords);
+      const managerSessions = attachNames(managerSessionsWithFollowUp, usersById);
 
       // Per-manager rollup for the "By Manager" tab - each manager in this
       // branch with their own roster size, coached-%, session count and

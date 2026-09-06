@@ -24,26 +24,34 @@ const TeamManagement = () => {
   const [revealedPassword, setRevealedPassword] = useState(null); // { name, tempPassword }
   const [busyUserId, setBusyUserId] = useState(null);
 
+  const isAdmin = user?.role === 'admin';
+
   const loadUsers = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const list = await userService.getAllUsers();
+      // Admin sees everyone; a Senior Manager only ever sees their own
+      // branch - the managers reporting to them and those managers'
+      // planners. Never other Senior Managers, never Admin.
+      const list = isAdmin ? await userService.getAllUsers() : await userService.getBranchTeam(user.id);
       setUsers(list);
     } catch (error) {
       console.error('Error loading users:', error);
-      toast.error('Failed to load your organization’s users');
+      toast.error('Failed to load your team');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
-  const isAdmin = user?.role === 'admin';
   const managers = users.filter((u) => u.role === 'manager');
   const seniorManagers = users.filter((u) => u.role === 'senior_manager');
   const usersById = new Map(users.map((u) => [u.id, u]));
+  // So a manager row's "reports to" can resolve to the viewing Senior
+  // Manager's own name even though they don't appear as a row themselves.
+  if (user) usersById.set(user.id, user);
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -58,7 +66,11 @@ const TeamManagement = () => {
         fullName: form.fullName.trim(),
         username: form.username.trim(),
         role: form.role,
-        branch: form.branch.trim(),
+        // Admin types the branch in by hand (needed when creating a new
+        // Senior Manager, who defines a new branch). A Senior Manager has
+        // no branch field at all - everyone they add is automatically in
+        // their own branch.
+        branch: isAdmin ? form.branch.trim() : (user?.branch || ''),
         // Planners: whichever manager was picked below (or unassigned).
         // Managers: report to the Senior Manager creating them - unless
         // it's an Admin doing the creating, in which case they picked one
@@ -195,7 +207,7 @@ const TeamManagement = () => {
         <div className="header-left">
           <h1 className="header-title">MANAGE TEAM</h1>
         </div>
-        <div className="header-date">{users.length} user{users.length !== 1 ? 's' : ''} in your organization</div>
+        <div className="header-date">{users.length} user{users.length !== 1 ? 's' : ''} in your {isAdmin ? 'organization' : 'branch'}</div>
       </div>
 
       <div className="card">
@@ -213,7 +225,7 @@ const TeamManagement = () => {
               <th>Username</th>
               <th>Role</th>
               <th>Branch</th>
-              <th>Reports To</th>
+              <th>{isAdmin ? 'Reports To' : 'Manager'}</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -316,15 +328,19 @@ const TeamManagement = () => {
               <select className="form-control" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value, reportsToId: '' })}>
                 <option value="planner">Planner</option>
                 <option value="manager">Manager</option>
-                <option value="senior_manager">Senior Manager</option>
+                {isAdmin && <option value="senior_manager">Senior Manager</option>}
               </select>
 
-              <label className="field-label">Branch</label>
-              <input className="form-control" value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} placeholder="e.g. Bagani" />
+              {isAdmin && (
+                <>
+                  <label className="field-label">Branch</label>
+                  <input className="form-control" value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} placeholder="e.g. Bagani" />
+                </>
+              )}
 
               {form.role === 'planner' && (
                 <>
-                  <label className="field-label">Reports to (Manager)</label>
+                  <label className="field-label">Manager</label>
                   <select className="form-control" value={form.reportsToId} onChange={(e) => setForm({ ...form, reportsToId: e.target.value })}>
                     <option value="">Unassigned</option>
                     {managers.map((m) => (

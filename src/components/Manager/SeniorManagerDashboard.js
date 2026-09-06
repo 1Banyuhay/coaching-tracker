@@ -310,6 +310,7 @@ const SeniorManagerDashboard = () => {
         <CoachingSessionsTable
           sessions={filteredSessions.slice(0, sessionsRowsPerPage)}
           recipientLabel="Planner"
+          coachColumnLabel="Manager"
           onSelectTopic={setDetailSession}
           onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Planner' } })}
           emptyMessage={`No coaching sessions in ${dateRange}`}
