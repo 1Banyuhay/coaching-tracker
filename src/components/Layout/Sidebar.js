@@ -128,11 +128,6 @@ const Sidebar = ({ role }) => {
             icon: <Settings size={20} />,
           },
           {
-            label: 'Sales Cycle',
-            path: '/sales-cycle',
-            icon: <TrendingUp size={20} />,
-          },
-          {
             label: 'Income Simulation',
             path: '/income-simulation',
             icon: <Calculator size={20} />,

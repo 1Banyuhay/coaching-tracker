@@ -1,0 +1,273 @@
+.sales-cycle-detail {
+  border-top: 3px solid var(--topic-color, #a85a2b);
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.sc-detail-header {
+  margin-bottom: 1rem;
+}
+
+.sc-detail-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--topic-color, #a85a2b);
+  letter-spacing: 0.01em;
+}
+
+.sc-detail-tagline {
+  margin: 0.25rem 0 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.sc-goal {
+  background: #fdfbf9;
+  border: 1px solid #eee1d5;
+  border-left: 4px solid var(--topic-color, #a85a2b);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sc-goal-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3a2f28;
+  margin-top: 0.15rem;
+}
+
+.sc-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a8a7a;
+}
+
+.sc-detail-body > * + * {
+  margin-top: 0.9rem;
+}
+
+.sc-paragraph {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3a352f;
+  margin: 0;
+}
+
+.sc-subheading {
+  margin: 1.25rem 0 0.25rem 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5c4530;
+}
+
+.sc-subsubheading {
+  margin: 0.85rem 0 0.15rem 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--topic-color, #a85a2b);
+}
+
+.sc-bullets,
+.sc-numbered {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3a352f;
+}
+
+.sc-bullets li,
+.sc-numbered li {
+  margin-bottom: 0.35rem;
+}
+
+.sc-quotes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sc-quotes li {
+  font-size: 13.5px;
+  font-style: italic;
+  color: #5c4d3f;
+  background: #fdfbf9;
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #f0e6da;
+}
+
+.sc-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 520px) {
+  .sc-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sc-compare-col {
+  background: #fdfbf9;
+  border: 1px solid #eee1d5;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+}
+
+.sc-compare-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--topic-color, #a85a2b);
+  margin-bottom: 0.25rem;
+}
+
+.sc-compare-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #3a352f;
+}
+
+.sc-dialogue {
+  background: #fdfbf9;
+  border: 1px solid #eee1d5;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.sc-dialogue-line {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #3a352f;
+  margin-top: 0.4rem;
+}
+
+.sc-dialogue-line:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.sc-dialogue-speaker {
+  font-weight: 700;
+  color: var(--topic-color, #a85a2b);
+}
+
+.sc-dialogue-line.client .sc-dialogue-speaker {
+  color: #6b7280;
+}
+
+.sc-post-comparison,
+.sc-labeled-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sc-post {
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #eee1d5;
+}
+
+.sc-post-generic {
+  background: #f3f0ec;
+}
+
+.sc-post-better {
+  background: #fdfbf9;
+  border-left: 3px solid var(--topic-color, #a85a2b);
+}
+
+.sc-post-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9a8a7a;
+  margin-bottom: 0.2rem;
+}
+
+.sc-post-better .sc-post-tag {
+  color: var(--topic-color, #a85a2b);
+}
+
+.sc-post-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #3a352f;
+  font-style: italic;
+}
+
+.sc-labeled-quote {
+  background: #fdfbf9;
+  border: 1px solid #eee1d5;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+}
+
+.sc-labeled-quote-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--topic-color, #a85a2b);
+  margin-bottom: 0.2rem;
+}
+
+.sc-labeled-quote-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #3a352f;
+  font-style: italic;
+}
+
+.sc-callout {
+  background: #fdfbf9;
+  border: 1px solid #eee1d5;
+  border-left: 3px solid var(--topic-color, #a85a2b);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+}
+
+.sc-callout-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #3a352f;
+  margin-top: 0.2rem;
+}
+
+.sc-table-wrap {
+  overflow-x: auto;
+}
+
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sc-table th,
+.sc-table td {
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #eee1d5;
+  vertical-align: top;
+}
+
+.sc-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a8a7a;
+}
+
+.sc-table td {
+  color: #3a352f;
+  line-height: 1.5;
+}

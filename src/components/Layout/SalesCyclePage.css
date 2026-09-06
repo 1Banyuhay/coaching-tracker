@@ -1,0 +1,12 @@
+.sc-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0.25rem 0 0 0;
+}
+
+.sc-empty-hint {
+  text-align: center;
+  font-size: 13.5px;
+  color: #9a8a7a;
+  padding: 1.5rem 0 0.5rem 0;
+}

@@ -20,6 +20,7 @@ import TeamManagement from './components/Manager/TeamManagement';
 import UsefulLinksPage from './components/Layout/UsefulLinksPage';
 import NotesPage from './components/Layout/NotesPage';
 import TerminologiesPage from './components/Layout/TerminologiesPage';
+import SalesCyclePage from './components/Layout/SalesCyclePage';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
@@ -141,14 +142,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              {/* Sales Cycle / Income Simulation - placeholders, content to
-                  follow. Open to every logged-in role, same as Useful
-                  Links. */}
+              {/* Sales Cycle - training content, open to Planner, Manager and
+                  Senior Manager (same audience as Terminologies / Useful
+                  Links). Income Simulation is still a placeholder. */}
               <Route
                 path="/sales-cycle"
                 element={
                   <ProtectedRoute>
-                    <Placeholder title="Sales Cycle" message="Content to follow." />
+                    <SalesCyclePage />
                   </ProtectedRoute>
                 }
               />
