@@ -3,17 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { userService } from '../../../services/userService';
 import { dashboardService } from '../../../services/dashboardService';
+import { topicsService } from '../../../services/topicsService';
 import { supabaseClient } from '../../../config/supabase';
 import toast from 'react-hot-toast';
 import './CoachingFormWizard.css';
 
-const TOPIC_OPTIONS = [
-  'Riders', 'Smart Start', 'Manifest', 'Fast Lane', 'Wealth+', 'Set for Health',
-  'Future Sure', 'The One', 'Branding', 'Prospecting', 'Appointment Setting',
-  'Objection-Handling', 'Closing', 'Cube App', 'Omne App', 'FNA FBB App',
-  'Financial Building Blocks', 'Policy Review', 'Investment Discussion',
-  'Debt Management', 'Incentives', 'Compensation', 'Promotion', 'Others',
-];
+// "Others" is always available as a catch-all with a free-text field below
+// it - every other choice comes from Admin's Coaching Topics list, scoped
+// to whichever role is doing the coaching (Manager or Senior Manager).
+const FALLBACK_TOPIC = 'Others';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
 
@@ -40,6 +38,7 @@ const CoachingFormWizard = () => {
 
   const [recipients, setRecipients] = useState([]);
   const [loadingRecipients, setLoadingRecipients] = useState(!followUpFrom);
+  const [topicOptions, setTopicOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [recipientId, setRecipientId] = useState(followUpFrom ? String(followUpFrom.planner_id) : '');
@@ -85,7 +84,23 @@ const CoachingFormWizard = () => {
     loadRecipients();
   }, [user?.id, user?.role, recipientType, followUpFrom, recipientLabel]);
 
-  const finalTopic = useMemo(() => (topic === 'Others' ? customTopic.trim() : topic), [topic, customTopic]);
+  useEffect(() => {
+    if (!user?.role) return;
+
+    const loadTopics = async () => {
+      try {
+        const list = await topicsService.getTopicsForRole(user.role);
+        setTopicOptions(list.map((t) => t.name));
+      } catch (error) {
+        console.error('Error loading topics:', error);
+        toast.error('Failed to load coaching topics');
+      }
+    };
+
+    loadTopics();
+  }, [user?.role]);
+
+  const finalTopic = useMemo(() => (topic === FALLBACK_TOPIC ? customTopic.trim() : topic), [topic, customTopic]);
 
   const isComplete =
     recipientId && finalTopic && discussion.trim() && actionItems.trim() && followUpDate;
@@ -183,12 +198,13 @@ const CoachingFormWizard = () => {
 
           <select className="form-control" value={topic} onChange={(e) => setTopic(e.target.value)}>
             <option value="">-- Select a topic --</option>
-            {TOPIC_OPTIONS.map((t) => (
+            {topicOptions.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
+            <option value={FALLBACK_TOPIC}>{FALLBACK_TOPIC}</option>
           </select>
 
-          {topic === 'Others' && (
+          {topic === FALLBACK_TOPIC && (
             <input
               type="text"
               className="form-control"

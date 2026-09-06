@@ -73,7 +73,7 @@ const Sidebar = ({ role }) => {
             icon: <BarChart3 size={20} />,
           },
           {
-            label: 'Coaching Library',
+            label: 'Coaching Topics',
             path: '/admin/library',
             icon: <BookOpen size={20} />,
           },

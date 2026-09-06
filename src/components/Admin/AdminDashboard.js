@@ -101,8 +101,8 @@ const AdminDashboard = () => {
           <p>Add or edit the links shown on every dashboard</p>
         </button>
         <button type="button" className="quick-link-card" onClick={() => navigate('/admin/library')}>
-          <h3>Coaching Library</h3>
-          <p>Manage categories, topics, and coaching items</p>
+          <h3>Coaching Topics</h3>
+          <p>Add or edit topics, and choose who can use each one</p>
         </button>
       </div>
 
