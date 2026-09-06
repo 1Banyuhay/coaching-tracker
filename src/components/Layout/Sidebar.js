@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Users, Settings, BookOpen, BookText, Link2, StickyNote, TrendingUp, Calculator, X } from 'lucide-react';
+import { BarChart3, Users, Settings, BookOpen, BookText, Link2, TrendingUp, Calculator, X } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ role }) => {
@@ -29,11 +29,6 @@ const Sidebar = ({ role }) => {
             label: 'Income Simulation',
             path: '/income-simulation',
             icon: <Calculator size={20} />,
-          },
-          {
-            label: 'Notes',
-            path: '/notes',
-            icon: <StickyNote size={20} />,
           },
           {
             label: 'Terminologies',
@@ -70,11 +65,6 @@ const Sidebar = ({ role }) => {
             icon: <Calculator size={20} />,
           },
           {
-            label: 'Notes',
-            path: '/notes',
-            icon: <StickyNote size={20} />,
-          },
-          {
             label: 'Terminologies',
             path: '/terminologies',
             icon: <BookText size={20} />,
@@ -102,11 +92,6 @@ const Sidebar = ({ role }) => {
             label: 'Income Simulation',
             path: '/income-simulation',
             icon: <Calculator size={20} />,
-          },
-          {
-            label: 'Notes',
-            path: '/notes',
-            icon: <StickyNote size={20} />,
           },
           {
             label: 'Terminologies',

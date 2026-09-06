@@ -197,17 +197,10 @@ const SeniorManagerDashboard = () => {
         </button>
         <button
           type="button"
-          className={`dashboard-tab ${activeTab === 'byManager' ? 'active' : ''}`}
-          onClick={() => setActiveTab('byManager')}
-        >
-          By Manager
-        </button>
-        <button
-          type="button"
           className={`dashboard-tab ${activeTab === 'byPlanners' ? 'active' : ''}`}
           onClick={() => setActiveTab('byPlanners')}
         >
-          By Planners
+          List of Planners
         </button>
       </div>
 
@@ -344,52 +337,9 @@ const SeniorManagerDashboard = () => {
       </>
       )}
 
-      {activeTab === 'byManager' && (
-        <div className="card">
-          <h2 className="section-title">MANAGERS IN YOUR BRANCH</h2>
-
-          {(data.managerSummaries || []).length === 0 ? (
-            <div className="no-data">No managers reporting to you yet</div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Manager</th>
-                  <th>Status</th>
-                  <th>Planners</th>
-                  <th>Coached At Least Once</th>
-                  <th>Sessions</th>
-                  <th>Avg Competency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.managerSummaries.map((m) => (
-                  <tr key={m.id}>
-                    <td><strong>{m.name}</strong></td>
-                    <td>
-                      <span className={`status-badge ${m.status === 'active' ? 'status-acknowledged' : 'status-pending'}`}>
-                        {m.status === 'active' ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>{m.totalPlanners}</td>
-                    <td>
-                      {m.totalPlanners
-                        ? `${m.coachedAtLeastOnce} of ${m.totalPlanners} (${m.pctCoached}%)`
-                        : '—'}
-                    </td>
-                    <td>{m.totalSessions}</td>
-                    <td>{competencyLabel(m.avgCompetency)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
       {activeTab === 'byPlanners' && (
         <div className="card">
-          <h2 className="section-title">PLANNERS BY MANAGER</h2>
+          <h2 className="section-title">LIST OF PLANNERS</h2>
 
           <div className="filter-controls">
             <div className="filter-group">
