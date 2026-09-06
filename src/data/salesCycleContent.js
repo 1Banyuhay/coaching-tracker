@@ -21,8 +21,6 @@ export const overview = {
   cycleNote:
     'A completed sale can lead to policy reviews, additional needs, introductions, referrals, and new prospects. Every good client experience feeds the next cycle. This is why branding must connect all five stages rather than appear only at the beginning.',
   remember: 'You do not simply close a sale. You open a relationship.',
-  corePrinciple:
-    'Brand before the meeting so people will consider you. Brand during the conversation so people will trust you. Brand after the sale so clients will confidently refer you.',
 };
 
 export const topics = [

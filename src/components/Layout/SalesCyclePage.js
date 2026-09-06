@@ -24,7 +24,6 @@ const SalesCyclePage = () => {
       </div>
 
       <div className="card">
-        <h2 className="section-title">What This Cycle Is About</h2>
         {overview.intro.map((paragraph, i) => (
           <p key={i} className="sc-paragraph" style={{ marginTop: i === 0 ? 0 : '0.75rem' }}>
             {paragraph}
@@ -53,22 +52,12 @@ const SalesCyclePage = () => {
         </div>
 
         <p className="sc-paragraph" style={{ marginTop: '1rem' }}>{overview.cycleNote}</p>
-
-        <div className="sc-callout" style={{ marginTop: '0.85rem' }}>
-          <div className="sc-block-label">Remember</div>
-          <div className="sc-callout-text">{overview.remember}</div>
-        </div>
-
-        <div className="sc-callout" style={{ marginTop: '0.6rem' }}>
-          <div className="sc-block-label">Core Principle</div>
-          <div className="sc-callout-text">{overview.corePrinciple}</div>
-        </div>
+        <p className="sc-paragraph" style={{ marginTop: '0.75rem' }}>{overview.remember}</p>
       </div>
 
       <div className="card">
-        <h2 className="section-title">The Cycle</h2>
         <p className="sc-hint">
-          Click Branding at the center, or any of the five stages, to see why it matters and how it works.
+          Click at the center, or any of the five stages, to see why it matters and how it works.
         </p>
 
         <SalesCycleWheel topics={topics} selectedKey={selectedKey} onSelect={setSelectedKey} />

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { linksService } from '../../services/linksService';
 import toast from 'react-hot-toast';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
 import '../Manager/ManagerDashboard.css';
 import '../Manager/TeamManagement.css';
 import './UsefulLinksPage.css';
@@ -146,6 +146,24 @@ const UsefulLinksPage = () => {
     }
   };
 
+  // Admin-only reordering: swap this link's position with its neighbor.
+  // visibleLinks is the full, already-ordered list when isAdmin (no role
+  // filtering applied), so its index reflects display order.
+  const moveLink = async (index, direction) => {
+    const neighborIndex = index + direction;
+    if (neighborIndex < 0 || neighborIndex >= visibleLinks.length) return;
+    setBusyId(visibleLinks[index].id);
+    try {
+      await linksService.swapOrder(visibleLinks[index], visibleLinks[neighborIndex]);
+      loadLinks();
+    } catch (error) {
+      console.error('Error reordering links:', error);
+      toast.error('Failed to reorder links');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
@@ -171,7 +189,7 @@ const UsefulLinksPage = () => {
           </div>
         ) : (
           <div className="links-grid">
-            {visibleLinks.map((link) => (
+            {visibleLinks.map((link, index) => (
               <div className="link-card" key={link.id}>
                 <div className="link-card-body">
                   <h3>{link.title}</h3>
@@ -186,6 +204,24 @@ const UsefulLinksPage = () => {
                   </a>
                   {isAdmin && (
                     <div className="team-actions">
+                      <button
+                        type="button"
+                        className="action-btn"
+                        title="Move up"
+                        disabled={busyId === link.id || index === 0}
+                        onClick={() => moveLink(index, -1)}
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="action-btn"
+                        title="Move down"
+                        disabled={busyId === link.id || index === visibleLinks.length - 1}
+                        onClick={() => moveLink(index, 1)}
+                      >
+                        <ChevronDown size={14} />
+                      </button>
                       <button type="button" className="action-btn" onClick={() => openForEdit(link)}>Edit</button>
                       <button
                         type="button"

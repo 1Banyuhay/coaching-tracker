@@ -4,6 +4,35 @@
   flex-wrap: wrap;
 }
 
+/* Base look for Edit/Delete/reorder buttons used across Team Management,
+   Terminologies, and Useful Links - this was previously only defined in
+   PlannerDashboard.css, which stopped being bundled once that component
+   was removed, so these buttons were rendering unstyled. */
+.action-btn {
+  background: #a85a2b;
+  color: #ffffff;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.action-btn:hover {
+  background: #9d5220;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .action-btn-danger {
   background: #c32626;
 }

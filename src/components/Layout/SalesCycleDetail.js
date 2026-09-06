@@ -4,7 +4,10 @@ import './SalesCycleDetail.css';
 // Renders one topic's content blocks. Each block has a "type" that maps to
 // how it should look - see src/data/salesCycleContent.js for the block
 // shapes (p, h, h3, bullets, numbered, quotes, compare, dialogue,
-// postComparison, labeledQuotes, callout, table).
+// postComparison, labeledQuotes, callout, table). Plain paragraph-style
+// blocks (goal, callout, quotes, dialogue, postComparison, labeledQuotes,
+// compare) are unboxed - just a bold/uppercase inline label followed by
+// the text, no borders or background.
 const Block = ({ block }) => {
   switch (block.type) {
     case 'p':
@@ -46,25 +49,23 @@ const Block = ({ block }) => {
     case 'compare':
       return (
         <div className="sc-compare">
-          <div className="sc-compare-col">
-            <div className="sc-compare-label">{block.left.label}</div>
-            <div className="sc-compare-text">{block.left.text}</div>
-          </div>
-          <div className="sc-compare-col">
-            <div className="sc-compare-label">{block.right.label}</div>
-            <div className="sc-compare-text">{block.right.text}</div>
-          </div>
+          <p className="sc-paragraph">
+            <span className="sc-label">{block.left.label}:</span> {block.left.text}
+          </p>
+          <p className="sc-paragraph">
+            <span className="sc-label">{block.right.label}:</span> {block.right.text}
+          </p>
         </div>
       );
 
     case 'dialogue':
       return (
         <div className="sc-dialogue">
-          {block.label && <div className="sc-block-label">{block.label}</div>}
+          {block.label && <p className="sc-label-line">{block.label}</p>}
           {block.lines.map((line, i) => (
-            <div key={i} className={`sc-dialogue-line ${line.speaker === 'Client' ? 'client' : 'planner'}`}>
-              <span className="sc-dialogue-speaker">{line.speaker}:</span> “{line.text}”
-            </div>
+            <p key={i} className="sc-paragraph sc-dialogue-line">
+              <span className="sc-label">{line.speaker}:</span> “{line.text}”
+            </p>
           ))}
         </div>
       );
@@ -72,37 +73,34 @@ const Block = ({ block }) => {
     case 'postComparison':
       return (
         <div className="sc-post-comparison">
-          <div className="sc-block-label">Post Comparison</div>
-          <div className="sc-post sc-post-generic">
-            <div className="sc-post-tag">Generic</div>
-            <div className="sc-post-text">“{block.generic}”</div>
-          </div>
-          <div className="sc-post sc-post-better">
-            <div className="sc-post-tag">Better</div>
-            <div className="sc-post-text">“{block.better}”</div>
-          </div>
+          <p className="sc-label-line">Post Comparison</p>
+          <p className="sc-paragraph">
+            <span className="sc-label">Generic:</span> “{block.generic}”
+          </p>
+          <p className="sc-paragraph">
+            <span className="sc-label">Better:</span> “{block.better}”
+          </p>
         </div>
       );
 
     case 'labeledQuotes':
       return (
         <div className="sc-labeled-quotes">
-          {block.label && <div className="sc-block-label">{block.label}</div>}
+          {block.label && <p className="sc-label-line">{block.label}</p>}
           {block.items.map((item, i) => (
-            <div key={i} className="sc-labeled-quote">
-              <div className="sc-labeled-quote-label">{item.label}</div>
-              <div className="sc-labeled-quote-text">“{item.text}”</div>
-            </div>
+            <p key={i} className="sc-paragraph">
+              <span className="sc-label">{item.label}:</span> “{item.text}”
+            </p>
           ))}
         </div>
       );
 
     case 'callout':
       return (
-        <div className="sc-callout">
-          {block.label && <div className="sc-block-label">{block.label}</div>}
-          <div className="sc-callout-text">{block.text}</div>
-        </div>
+        <p className="sc-paragraph">
+          {block.label && <span className="sc-label">{block.label}: </span>}
+          {block.text}
+        </p>
       );
 
     case 'table':
@@ -145,10 +143,9 @@ const SalesCycleDetail = ({ topic }) => {
       </div>
 
       {topic.goal && (
-        <div className="sc-goal">
-          <div className="sc-block-label">Goal</div>
-          <div className="sc-goal-text">{topic.goal}</div>
-        </div>
+        <p className="sc-paragraph sc-goal-line">
+          <span className="sc-label">GOAL:</span> {topic.goal}
+        </p>
       )}
 
       <div className="sc-detail-body">
