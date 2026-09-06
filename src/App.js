@@ -19,6 +19,8 @@ import PlannerProfile from './components/Manager/PlannerProfile';
 import MyPlanners from './components/Manager/MyPlanners';
 import TeamManagement from './components/Manager/TeamManagement';
 import UsefulLinksPage from './components/Layout/UsefulLinksPage';
+import NotesPage from './components/Layout/NotesPage';
+import TerminologiesPage from './components/Layout/TerminologiesPage';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
@@ -229,6 +231,26 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <UsefulLinksPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Notes - private per-user scratchpad, Senior Manager/Manager/Planner */}
+              <Route
+                path="/notes"
+                element={
+                  <ProtectedRoute>
+                    <NotesPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Terminologies - shared glossary, Admin-managed */}
+              <Route
+                path="/terminologies"
+                element={
+                  <ProtectedRoute>
+                    <TerminologiesPage />
                   </ProtectedRoute>
                 }
               />

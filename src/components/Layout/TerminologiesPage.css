@@ -1,0 +1,45 @@
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.term-item {
+  border: 1px solid #f0ebe5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.term-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b4423;
+}
+
+.term-question:hover {
+  background: #fdfbf9;
+}
+
+.term-answer {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid #f0ebe5;
+}
+
+.term-answer p {
+  margin: 1rem 0 0;
+  font-size: 13px;
+  color: #2c2c2c;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
