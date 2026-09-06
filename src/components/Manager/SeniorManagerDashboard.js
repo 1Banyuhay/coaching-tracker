@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
 import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
+import FollowUpBanner from '../Layout/FollowUpBanner';
 import './ManagerDashboard.css';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -169,6 +170,8 @@ const SeniorManagerDashboard = () => {
         </div>
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
+
+      <FollowUpBanner sessions={[...(data.sessions || []), ...(data.managerSessions || [])]} />
 
       <div className="dashboard-tabs">
         <button

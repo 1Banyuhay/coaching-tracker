@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import SummaryModal from '../Layout/SummaryModal';
 import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
+import FollowUpBanner from '../Layout/FollowUpBanner';
 import './ManagerDashboard.css';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -212,6 +213,8 @@ const ManagerDashboard = () => {
         </div>
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
+
+      <FollowUpBanner sessions={data.sessions} />
 
       <div className="metrics-grid">
         <div className={`metric-card ${stats.needAction > 0 ? 'metric-alert' : ''}`}>

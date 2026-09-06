@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatDate } from '../../utils/dateHelpers';
-import { followUpStatus } from '../../services/dashboardService';
+import { followUpStatus, canLogFollowUp as computeCanLogFollowUp } from '../../services/dashboardService';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
 
@@ -54,11 +54,7 @@ const CoachingSessionsTable = ({
         {sessions.map((session) => {
           const due = followUpStatus(session);
           const { cls, label } = statusInfo(session.status);
-          const canLogFollowUp =
-            !!onLogFollowUp &&
-            !!session.follow_up_date &&
-            !session.has_follow_up &&
-            session.status !== 'coaching_complete';
+          const eligibleForFollowUp = !!onLogFollowUp && computeCanLogFollowUp(session);
 
           return (
             <tr key={session.id}>
@@ -79,7 +75,7 @@ const CoachingSessionsTable = ({
               </td>
               {onLogFollowUp && (
                 <td>
-                  {canLogFollowUp && (
+                  {eligibleForFollowUp && (
                     <button type="button" className="action-btn" onClick={() => onLogFollowUp(session)}>
                       Log Follow-Up
                     </button>

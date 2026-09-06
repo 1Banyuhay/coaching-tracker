@@ -144,7 +144,14 @@ export async function logFollowUp(originalRecord, newRecordFields) {
 
 // Due-date badge state for a record's follow_up_date. Returns null when
 // there's nothing to flag (no date, already completed, or already
-// followed up).
+// followed up). Four states, based on days until the follow-up date:
+//   > 7 days out   - null (nothing to show yet)
+//   4-7 days out   - 'upcoming'  - a heads-up only, not actionable yet
+//   0-3 days out   - 'ready'     - the only window a follow-up can be
+//                                  logged in (see canLogFollowUp below)
+//   past the date  - 'missed'    - the window has closed; this record
+//                                  stays incomplete for good - logging a
+//                                  follow-up no longer counts against it
 export function followUpStatus(record) {
   if (!record.follow_up_date || record.status === 'coaching_complete' || record.has_follow_up) {
     return null;
@@ -152,9 +159,33 @@ export function followUpStatus(record) {
   const due = new Date(record.follow_up_date);
   const now = new Date();
   const diffDays = Math.ceil((due.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
-  if (diffDays < 0) return { level: 'overdue', label: `${Math.abs(diffDays)}d overdue` };
-  if (diffDays <= 7) return { level: 'due-soon', label: diffDays === 0 ? 'Due today' : `Due in ${diffDays}d` };
+
+  if (diffDays < 0) return { level: 'missed', label: `Missed - ${Math.abs(diffDays)}d ago` };
+  if (diffDays <= 3) return { level: 'ready', label: diffDays === 0 ? 'Ready - due today' : `Ready in ${diffDays}d` };
+  if (diffDays <= 7) return { level: 'upcoming', label: `Due in ${diffDays}d` };
   return null;
+}
+
+// A follow-up can only be logged inside its 3-day-before-through-due-date
+// window - not earlier (too soon to matter yet) and never after the due
+// date has passed (per the "past due = won't be completed" rule).
+export function canLogFollowUp(record) {
+  if (!record.follow_up_date || record.has_follow_up || record.status === 'coaching_complete') {
+    return false;
+  }
+  return followUpStatus(record)?.level === 'ready';
+}
+
+// Tallies how many sessions in a list are 'upcoming' / 'ready' / 'missed'
+// right now - powers the "N follow-ups due" banner on the Manager and
+// Senior Manager dashboards.
+export function followUpCounts(sessions) {
+  const counts = { upcoming: 0, ready: 0, missed: 0 };
+  (sessions || []).forEach((s) => {
+    const status = followUpStatus(s);
+    if (status && counts[status.level] !== undefined) counts[status.level] += 1;
+  });
+  return counts;
 }
 
 // ---------------------------------------------------------------------

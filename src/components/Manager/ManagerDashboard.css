@@ -249,8 +249,23 @@
   vertical-align: middle;
 }
 
-.due-badge.due-overdue { background: #fde2e2; color: #c32626; }
-.due-badge.due-due-soon { background: #fff4d6; color: #b8860b; }
+.due-badge.due-missed { background: #fde2e2; color: #c32626; }
+.due-badge.due-upcoming { background: #fff4d6; color: #b8860b; }
+.due-badge.due-ready { background: #d4edda; color: #2d5016; }
+
+.followup-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.25rem;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.followup-banner.banner-missed { background: #fde2e2; color: #8a1f1f; border: 1px solid #f5b8b8; }
+.followup-banner.banner-ready { background: #d4edda; color: #234a12; border: 1px solid #a9d6b3; }
 
 .subsection-header {
   display: flex;
