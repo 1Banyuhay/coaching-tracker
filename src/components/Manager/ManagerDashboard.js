@@ -209,6 +209,7 @@ const ManagerDashboard = () => {
     <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
+          <p className="header-subtitle">1Sang Banyuhay Financial Group</p>
           <h1 className="header-title">COACHING DASHBOARD</h1>
         </div>
         <div className="header-date">{formatHeaderDate()}</div>

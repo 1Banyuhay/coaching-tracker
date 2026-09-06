@@ -248,6 +248,7 @@ const TeamManagement = () => {
     <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
+          <p className="header-subtitle">1Sang Banyuhay Financial Group</p>
           <h1 className="header-title">MANAGE TEAM</h1>
         </div>
         <div className="header-date">{users.length} user{users.length !== 1 ? 's' : ''} in your {isAdmin ? 'organization' : 'branch'}</div>

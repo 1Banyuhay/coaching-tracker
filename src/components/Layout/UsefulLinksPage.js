@@ -154,6 +154,7 @@ const UsefulLinksPage = () => {
     <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
+          <p className="header-subtitle">1Sang Banyuhay Financial Group</p>
           <h1 className="header-title">USEFUL LINKS</h1>
         </div>
         {isAdmin && (

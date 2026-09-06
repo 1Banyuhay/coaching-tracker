@@ -4,14 +4,13 @@ import { X } from 'lucide-react';
 // Generic drill-down modal opened by clicking any dashboard stat number.
 // `columns`: [{ key, label, render?(row) }]
 // `rows`: array of plain objects rendered one per table row.
-const SummaryModal = ({ title, subtitle, columns, rows, emptyMessage, onClose }) => {
+const SummaryModal = ({ title, columns, rows, emptyMessage, onClose }) => {
   return (
     <div className="summary-modal-overlay" onClick={onClose}>
       <div className="summary-modal" onClick={(e) => e.stopPropagation()}>
         <div className="summary-modal-header">
           <div>
             <h2>{title}</h2>
-            {subtitle && <p className="summary-modal-subtitle">{subtitle}</p>}
           </div>
           <button className="summary-modal-close" onClick={onClose} aria-label="Close">
             <X size={20} />

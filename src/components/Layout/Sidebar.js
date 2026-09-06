@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Users, Settings, CheckCircle2, BookOpen, Link2, TrendingUp, Calculator, X } from 'lucide-react';
+import { BarChart3, Users, Settings, BookOpen, Link2, TrendingUp, Calculator, X } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ role }) => {
@@ -72,11 +72,6 @@ const Sidebar = ({ role }) => {
             label: 'Dashboard',
             path: '/planner/dashboard',
             icon: <BarChart3 size={20} />,
-          },
-          {
-            label: 'Pending Confirmations',
-            path: '/planner/confirmations',
-            icon: <CheckCircle2 size={20} />,
           },
           {
             label: 'Sales Cycle',

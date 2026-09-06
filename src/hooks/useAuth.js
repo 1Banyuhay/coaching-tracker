@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabaseClient } from '../config/supabase';
 import { verifyPassword, isHashed, hashPassword } from '../utils/passwordHash';
 
-export const useAuth = () => {
+// A real Context, not just a plain hook - every component that calls
+// useAuth() shares ONE user/loading state instead of each keeping its own
+// separate copy. That matters the moment something changes it from
+// somewhere other than where App.js reads it: e.g. logging out from the
+// Navbar used to only update the Navbar's own private copy of `user`,
+// leaving App.js still thinking someone was logged in (so it kept
+// rendering the authenticated router, which has no /login route at all,
+// instead of dropping back to the login screen).
+const AuthContext = createContext(null);
+
+function useProvideAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +38,7 @@ export const useAuth = () => {
         console.error('Query error:', error);
         throw error;
       }
-      
+
       if (!data || data.length === 0) {
         console.log('No users found');
         throw new Error('User not found');
@@ -111,6 +121,19 @@ export const useAuth = () => {
     isAuthenticated: !!user,
     role: user?.role || null,
     logout,
-    updateStoredUser
+    updateStoredUser,
   };
+}
+
+export const AuthProvider = ({ children }) => {
+  const auth = useProvideAuth();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

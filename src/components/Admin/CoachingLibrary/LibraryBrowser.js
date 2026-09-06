@@ -126,6 +126,7 @@ const LibraryBrowser = () => {
     <div className="manager-dashboard">
       <div className="dashboard-header">
         <div className="header-left">
+          <p className="header-subtitle">1Sang Banyuhay Financial Group</p>
           <h1 className="header-title">COACHING TOPICS</h1>
         </div>
         <button type="button" className="cta-button" style={{ marginTop: 0 }} onClick={openForCreate}>

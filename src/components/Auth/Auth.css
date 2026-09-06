@@ -24,6 +24,15 @@
   text-align: center;
 }
 
+.login-brand {
+  margin: 0 0 0.85rem 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
 .login-header h1 {
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
@@ -149,6 +158,38 @@
   color: #6b7280;
   font-weight: 500;
   line-height: 1.5;
+}
+
+.demo-credentials-label {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a85a2b !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.demo-credentials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.demo-credentials-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  color: #4b4b4b;
+  background: #fff;
+  border: 1px dashed #d4ccc4;
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+}
+
+.demo-role {
+  font-weight: 700;
+  color: #2c2c2c;
 }
 
 @media (max-width: 480px) {

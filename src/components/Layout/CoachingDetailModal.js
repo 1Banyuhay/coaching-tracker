@@ -30,7 +30,6 @@ const CoachingDetailModal = ({ session, recipientLabel = 'Planner', onClose }) =
         <div className="summary-modal-header">
           <div>
             <h2>{session.topic || 'General'}</h2>
-            <p className="summary-modal-subtitle">Coaching session detail</p>
           </div>
           <button className="summary-modal-close" onClick={onClose} aria-label="Close">
             <X size={20} />
