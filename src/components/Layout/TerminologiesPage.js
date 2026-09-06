@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { termsService } from '../../services/termsService';
 import toast from 'react-hot-toast';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import '../Manager/ManagerDashboard.css';
 import '../Manager/TeamManagement.css';
 import './UsefulLinksPage.css';
@@ -15,6 +15,7 @@ const ROLE_OPTIONS = [
 ];
 const ROLE_LABELS = { planner: 'Planner', manager: 'Manager', senior_manager: 'Senior Manager' };
 const ALL_ROLES = ROLE_OPTIONS.map((r) => r.value);
+const UNCATEGORIZED = 'Uncategorized';
 
 const visibilityLabel = (roles) => {
   if (!roles || roles.length === 0) return 'Hidden from everyone (draft)';
@@ -22,12 +23,14 @@ const visibilityLabel = (roles) => {
   return `Visible to: ${roles.map((r) => ROLE_LABELS[r] || r).join(', ')}`;
 };
 
-const emptyForm = { term: '', explanation: '', visibleRoles: [...ALL_ROLES] };
+const emptyForm = { term: '', category: '', definition: '', example: '', visibleRoles: [...ALL_ROLES] };
 
 // "Terminologies" - a shared glossary shown as its own link right above
-// Useful Links on every dashboard. Everyone can click a term to see its
-// explanation; only an Admin account can add, edit, remove terms, or pick
-// which roles can see each one. Content is added later via Admin.
+// Useful Links on every dashboard. Terms are grouped by category (a
+// section header, e.g. "A. Life Insurance Fundamentals") - click a
+// category to expand its terms, then click a term to reveal its
+// Definition and, where there is one, a worked Example. Only an Admin
+// account can add, edit, remove terms, or pick which roles see each one.
 const TerminologiesPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -39,6 +42,7 @@ const TerminologiesPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [openCategories, setOpenCategories] = useState(() => new Set());
   const [openTermId, setOpenTermId] = useState(null);
 
   const loadTerms = useCallback(async () => {
@@ -61,6 +65,36 @@ const TerminologiesPage = () => {
   // Everyone else only sees terms their role has been given access to.
   const visibleTerms = isAdmin ? terms : terms.filter((t) => (t.visible_roles || []).includes(user?.role));
 
+  const groupedByCategory = useMemo(() => {
+    const groups = new Map();
+    visibleTerms.forEach((t) => {
+      const key = t.category && t.category.trim() ? t.category.trim() : UNCATEGORIZED;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    });
+    return [...groups.entries()]
+      .map(([category, list]) => [category, list.sort((a, b) => a.term.localeCompare(b.term))])
+      .sort((a, b) => {
+        if (a[0] === UNCATEGORIZED) return 1;
+        if (b[0] === UNCATEGORIZED) return -1;
+        return a[0].localeCompare(b[0]);
+      });
+  }, [visibleTerms]);
+
+  const existingCategories = useMemo(
+    () => [...new Set(terms.map((t) => t.category).filter(Boolean))].sort(),
+    [terms]
+  );
+
+  const toggleCategory = (category) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
+
   const openForCreate = () => {
     setForm(emptyForm);
     setEditingId(null);
@@ -70,7 +104,9 @@ const TerminologiesPage = () => {
   const openForEdit = (term) => {
     setForm({
       term: term.term,
-      explanation: term.explanation || '',
+      category: term.category || '',
+      definition: term.definition || '',
+      example: term.example || '',
       visibleRoles: term.visible_roles && term.visible_roles.length ? [...term.visible_roles] : [],
     });
     setEditingId(term.id);
@@ -97,7 +133,9 @@ const TerminologiesPage = () => {
     try {
       const fields = {
         term: form.term.trim(),
-        explanation: form.explanation.trim() || null,
+        category: form.category.trim() || null,
+        definition: form.definition.trim() || null,
+        example: form.example.trim() || null,
         visible_roles: form.visibleRoles,
       };
 
@@ -105,7 +143,7 @@ const TerminologiesPage = () => {
         await termsService.updateTerm(editingId, fields);
         toast.success('Term updated');
       } else {
-        await termsService.createTerm(fields);
+        await termsService.createTerm({ ...fields, visibleRoles: fields.visible_roles });
         toast.success('Term added');
       }
 
@@ -155,39 +193,67 @@ const TerminologiesPage = () => {
       </div>
 
       <div className="card">
-        {visibleTerms.length === 0 ? (
+        {groupedByCategory.length === 0 ? (
           <div className="no-data">
             {isAdmin ? 'No terms yet - add the first one.' : 'No terminologies have been added yet.'}
           </div>
         ) : (
-          <div className="terms-list">
-            {visibleTerms.map((t) => {
-              const isOpen = openTermId === t.id;
+          <div className="category-list">
+            {groupedByCategory.map(([category, categoryTerms]) => {
+              const isCategoryOpen = openCategories.has(category);
               return (
-                <div className="term-item" key={t.id}>
-                  <button type="button" className="term-question" onClick={() => setOpenTermId(isOpen ? null : t.id)}>
-                    <span>{t.term}</span>
-                    {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                <div className="category-item" key={category}>
+                  <button type="button" className="category-question" onClick={() => toggleCategory(category)}>
+                    <span className="category-question-label">
+                      <ChevronRight size={16} className={`category-chevron ${isCategoryOpen ? 'open' : ''}`} />
+                      {category}
+                    </span>
+                    <span className="category-count">{categoryTerms.length}</span>
                   </button>
-                  {isOpen && (
-                    <div className="term-answer">
-                      <p>{t.explanation || 'No explanation added yet.'}</p>
-                      {isAdmin && (
-                        <>
-                          <span className="link-visibility-tag">{visibilityLabel(t.visible_roles)}</span>
-                          <div className="team-actions" style={{ marginTop: '0.75rem' }}>
-                            <button type="button" className="action-btn" onClick={() => openForEdit(t)}>Edit</button>
-                            <button
-                              type="button"
-                              className="action-btn action-btn-danger"
-                              disabled={busyId === t.id}
-                              onClick={() => handleDelete(t)}
-                            >
-                              Delete
+
+                  {isCategoryOpen && (
+                    <div className="terms-list">
+                      {categoryTerms.map((t) => {
+                        const isOpen = openTermId === t.id;
+                        return (
+                          <div className="term-item" key={t.id}>
+                            <button type="button" className="term-question" onClick={() => setOpenTermId(isOpen ? null : t.id)}>
+                              <span>{t.term}</span>
+                              {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                             </button>
+                            {isOpen && (
+                              <div className="term-answer">
+                                <div className="term-answer-block">
+                                  <div className="term-answer-label">Definition</div>
+                                  <p>{t.definition || 'No definition added yet.'}</p>
+                                </div>
+                                {t.example && (
+                                  <div className="term-answer-block">
+                                    <div className="term-answer-label">Example</div>
+                                    <p>{t.example}</p>
+                                  </div>
+                                )}
+                                {isAdmin && (
+                                  <>
+                                    <span className="link-visibility-tag">{visibilityLabel(t.visible_roles)}</span>
+                                    <div className="team-actions" style={{ marginTop: '0.75rem' }}>
+                                      <button type="button" className="action-btn" onClick={() => openForEdit(t)}>Edit</button>
+                                      <button
+                                        type="button"
+                                        className="action-btn action-btn-danger"
+                                        disabled={busyId === t.id}
+                                        onClick={() => handleDelete(t)}
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </>
-                      )}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -210,15 +276,37 @@ const TerminologiesPage = () => {
                 className="form-control"
                 value={form.term}
                 onChange={(e) => setForm({ ...form, term: e.target.value })}
-                placeholder="e.g. FNA"
+                placeholder="e.g. Face Amount"
               />
 
-              <label className="field-label">Explanation</label>
+              <label className="field-label">Category</label>
+              <input
+                className="form-control"
+                list="terminology-categories"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. A. Life Insurance Fundamentals"
+              />
+              <datalist id="terminology-categories">
+                {existingCategories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+
+              <label className="field-label">Definition</label>
               <textarea
                 className="form-control"
-                value={form.explanation}
-                onChange={(e) => setForm({ ...form, explanation: e.target.value })}
+                value={form.definition}
+                onChange={(e) => setForm({ ...form, definition: e.target.value })}
                 placeholder="What does this term mean?"
+              />
+
+              <label className="field-label">Example (optional)</label>
+              <textarea
+                className="form-control"
+                value={form.example}
+                onChange={(e) => setForm({ ...form, example: e.target.value })}
+                placeholder="A short worked example, if one helps"
               />
 
               <label className="field-label">Who can see this term?</label>
