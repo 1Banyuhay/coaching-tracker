@@ -15,7 +15,6 @@ import LoginForm from './components/Auth/LoginForm';
 import ManagerDashboard from './components/Manager/ManagerDashboard';
 import SeniorManagerDashboard from './components/Manager/SeniorManagerDashboard';
 import CoachingFormWizard from './components/Manager/CoachingForm/CoachingFormWizard';
-import PlannerProfile from './components/Manager/PlannerProfile';
 import MyPlanners from './components/Manager/MyPlanners';
 import TeamManagement from './components/Manager/TeamManagement';
 import UsefulLinksPage from './components/Layout/UsefulLinksPage';
@@ -24,7 +23,6 @@ import TerminologiesPage from './components/Layout/TerminologiesPage';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
-import PendingConfirmations from './components/Planner/PendingConfirmations';
 
 // Admin Pages
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -126,14 +124,6 @@ function App() {
                 }
               />
               <Route
-                path="/manager/planner/:plannerId"
-                element={
-                  <ProtectedRoute requiredRole="manager">
-                    <PlannerProfile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/manager/planners"
                 element={
                   <ProtectedRoute requiredRole="manager">
@@ -151,15 +141,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/planner/confirmations"
-                element={
-                  <ProtectedRoute requiredRole="planner">
-                    <PendingConfirmations />
-                  </ProtectedRoute>
-                }
-              />
-
               {/* Sales Cycle / Income Simulation - placeholders, content to
                   follow. Open to every logged-in role, same as Useful
                   Links. */}
