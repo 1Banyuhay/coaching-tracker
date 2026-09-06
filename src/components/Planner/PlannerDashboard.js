@@ -143,7 +143,7 @@ const PlannerDashboard = () => {
           <button className="metric-value-btn" onClick={() => setActiveCard('needAction')}>
             {stats.needAction || 0}
           </button>
-          <div className="metric-detail">from Senior Manager or Manager</div>
+          <div className="metric-detail">from Manager / Senior Manager</div>
         </div>
 
         <div className="metric-card metric-success">

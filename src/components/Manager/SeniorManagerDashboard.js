@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
 import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
+import PlannerCoachingModal from '../Layout/PlannerCoachingModal';
 import FollowUpBanner from '../Layout/FollowUpBanner';
 import './ManagerDashboard.css';
 
@@ -27,6 +28,8 @@ const SeniorManagerDashboard = () => {
   const [activeCard, setActiveCard] = useState(null);
   const [detailSession, setDetailSession] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [selectedPlanner, setSelectedPlanner] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -92,6 +95,16 @@ const SeniorManagerDashboard = () => {
   if (!data) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>No data</div>;
   }
+
+  const allPlanners = [...(data.buckets?.needCoaching || []), ...(data.buckets?.acknowledged || []), ...(data.buckets?.completed || [])]
+    .map((e) => e.planner);
+  const managersForPicker = [...(data.managers || [])].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  const plannersForSelectedManager = selectedManagerId
+    ? allPlanners
+        .filter((p) => String(p.reports_to_id) === String(selectedManagerId))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name))
+    : [];
+  const sessionsForPlanner = (plannerId) => (data.sessions || []).filter((s) => s.planner_id === plannerId);
 
   const filteredSessions = filterDataByDateRange(data.sessions);
   const sessionRowsOptions = generateRowsOptions(filteredSessions.length);
@@ -188,6 +201,13 @@ const SeniorManagerDashboard = () => {
           onClick={() => setActiveTab('byManager')}
         >
           By Manager
+        </button>
+        <button
+          type="button"
+          className={`dashboard-tab ${activeTab === 'byPlanners' ? 'active' : ''}`}
+          onClick={() => setActiveTab('byPlanners')}
+        >
+          By Planners
         </button>
       </div>
 
@@ -365,6 +385,68 @@ const SeniorManagerDashboard = () => {
             </table>
           )}
         </div>
+      )}
+
+      {activeTab === 'byPlanners' && (
+        <div className="card">
+          <h2 className="section-title">PLANNERS BY MANAGER</h2>
+
+          <div className="filter-controls">
+            <div className="filter-group">
+              <label>Manager:</label>
+              <select
+                value={selectedManagerId}
+                onChange={(e) => setSelectedManagerId(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">Select a manager...</option>
+                {managersForPicker.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {!selectedManagerId ? (
+            <div className="no-data">Choose a manager above to see their planners</div>
+          ) : plannersForSelectedManager.length === 0 ? (
+            <div className="no-data">No planners reporting to this manager yet</div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Planner</th>
+                  <th>Branch</th>
+                  <th>Sessions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plannersForSelectedManager.map((planner) => (
+                  <tr key={planner.id}>
+                    <td>
+                      <button type="button" className="topic-link" onClick={() => setSelectedPlanner(planner)}>
+                        {planner.full_name}
+                      </button>
+                    </td>
+                    <td>{planner.branch || '—'}</td>
+                    <td>{sessionsForPlanner(planner.id).length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {selectedPlanner && (
+        <PlannerCoachingModal
+          planner={selectedPlanner}
+          sessions={sessionsForPlanner(selectedPlanner.id)}
+          coachColumnLabel="Manager"
+          onSelectTopic={setDetailSession}
+          onStartSession={() => navigate('/manager/coaching/start')}
+          onClose={() => setSelectedPlanner(null)}
+        />
       )}
 
       {activeCard && (

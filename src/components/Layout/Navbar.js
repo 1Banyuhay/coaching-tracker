@@ -25,7 +25,7 @@ const Navbar = () => {
       admin: 'Administrator',
       senior_manager: 'Senior Manager',
       manager: 'Manager',
-      planner: 'Financial Planner',
+      planner: 'Planner',
     };
     return labels[role] || role;
   };

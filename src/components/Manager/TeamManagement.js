@@ -23,6 +23,15 @@ const TeamManagement = () => {
   const [saving, setSaving] = useState(false);
   const [revealedPassword, setRevealedPassword] = useState(null); // { name, tempPassword }
   const [busyUserId, setBusyUserId] = useState(null);
+  // Staged edits for the two actions that used to apply the instant a
+  // control was touched (the reassignment dropdowns, and the
+  // Activate/Deactivate toggle) - now held here until reviewed and
+  // confirmed, so an accidental click or a wrong dropdown pick doesn't
+  // silently take effect. Keyed by `${userId}_${field}` so a user can have
+  // both a staged reassignment and a staged status change at once.
+  const [pendingChanges, setPendingChanges] = useState({});
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [applyingChanges, setApplyingChanges] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
@@ -111,19 +120,74 @@ const TeamManagement = () => {
     }
   };
 
-  const handleToggleStatus = async (targetUser) => {
-    const nextStatus = targetUser.status === 'active' ? 'inactive' : 'active';
-    setBusyUserId(targetUser.id);
-    try {
-      await userService.setStatus(targetUser.id, nextStatus);
-      toast.success(`${targetUser.full_name} is now ${nextStatus}`);
-      loadUsers();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
-    } finally {
-      setBusyUserId(null);
+  // Stages a reassignment or status change instead of applying it right
+  // away. Re-staging the value the record already has (e.g. flipping the
+  // status toggle twice) clears the staged edit rather than piling up a
+  // no-op change.
+  const stageChange = (targetUser, field, value) => {
+    const key = `${targetUser.id}_${field}`;
+    const actualValue = field === 'manager' ? (targetUser.reports_to_id || null) : targetUser.status;
+    setPendingChanges((prev) => {
+      const next = { ...prev };
+      if (value === actualValue) {
+        delete next[key];
+      } else {
+        next[key] = { targetUser, field, value };
+      }
+      return next;
+    });
+  };
+
+  const effectiveReportsTo = (u) => {
+    const staged = pendingChanges[`${u.id}_manager`];
+    return staged ? (staged.value ?? '') : (u.reports_to_id || '');
+  };
+
+  const effectiveStatus = (u) => {
+    const staged = pendingChanges[`${u.id}_status`];
+    return staged ? staged.value : u.status;
+  };
+
+  const describeChange = (change) => {
+    if (change.field === 'status') {
+      return change.value === 'active' ? 'Reactivate' : 'Deactivate';
     }
+    const toName = change.value ? (usersById.get(change.value)?.full_name || 'someone no longer listed') : 'Unassigned';
+    return `Reassign to ${toName}`;
+  };
+
+  const discardPendingChanges = () => {
+    setPendingChanges({});
+    setShowReviewModal(false);
+  };
+
+  const applyPendingChanges = async () => {
+    const changes = Object.values(pendingChanges);
+    if (changes.length === 0) return;
+    setApplyingChanges(true);
+    try {
+      for (const change of changes) {
+        if (change.field === 'manager') {
+          await userService.assignManager(change.targetUser.id, change.value);
+        } else if (change.field === 'status') {
+          await userService.setStatus(change.targetUser.id, change.value);
+        }
+      }
+      toast.success(`${changes.length} change${changes.length !== 1 ? 's' : ''} applied`);
+    } catch (error) {
+      console.error('Error applying changes:', error);
+      toast.error('Some changes may not have applied - reloading current state');
+    } finally {
+      setPendingChanges({});
+      setShowReviewModal(false);
+      setApplyingChanges(false);
+      loadUsers();
+    }
+  };
+
+  const handleToggleStatus = (targetUser) => {
+    const nextStatus = effectiveStatus(targetUser) === 'active' ? 'inactive' : 'active';
+    stageChange(targetUser, 'status', nextStatus);
   };
 
   // Saves a JSON copy of someone's coaching history to the browser's
@@ -184,18 +248,8 @@ const TeamManagement = () => {
     }
   };
 
-  const handleReassign = async (targetUser, newManagerId) => {
-    setBusyUserId(targetUser.id);
-    try {
-      await userService.assignManager(targetUser.id, newManagerId || null);
-      toast.success(`${targetUser.full_name}’s manager updated`);
-      loadUsers();
-    } catch (error) {
-      console.error('Error assigning manager:', error);
-      toast.error('Failed to update manager');
-    } finally {
-      setBusyUserId(null);
-    }
+  const handleReassign = (targetUser, newManagerId) => {
+    stageChange(targetUser, 'manager', newManagerId || null);
   };
 
   // Promotions happen - a planner becomes a manager (and can then have
@@ -275,8 +329,10 @@ const TeamManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
+            {users.map((u) => {
+              const hasPendingChange = !!(pendingChanges[`${u.id}_manager`] || pendingChanges[`${u.id}_status`]);
+              return (
+              <tr key={u.id} style={hasPendingChange ? { background: '#fff8e6' } : undefined}>
                 <td><strong>{u.full_name}</strong></td>
                 <td>{u.username}</td>
                 <td>{ROLE_LABELS[u.role] || u.role}</td>
@@ -285,7 +341,7 @@ const TeamManagement = () => {
                   {u.role === 'planner' ? (
                     <select
                       className="filter-select"
-                      value={u.reports_to_id || ''}
+                      value={effectiveReportsTo(u)}
                       onChange={(e) => handleReassign(u, e.target.value ? parseInt(e.target.value, 10) : null)}
                       disabled={busyUserId === u.id}
                     >
@@ -297,7 +353,7 @@ const TeamManagement = () => {
                   ) : u.role === 'manager' && isAdmin ? (
                     <select
                       className="filter-select"
-                      value={u.reports_to_id || ''}
+                      value={effectiveReportsTo(u)}
                       onChange={(e) => handleReassign(u, e.target.value ? parseInt(e.target.value, 10) : null)}
                       disabled={busyUserId === u.id}
                     >
@@ -311,9 +367,10 @@ const TeamManagement = () => {
                   )}
                 </td>
                 <td>
-                  <span className={`status-badge ${u.status === 'active' ? 'status-acknowledged' : 'status-pending'}`}>
-                    {u.status === 'active' ? 'Active' : 'Inactive'}
+                  <span className={`status-badge ${effectiveStatus(u) === 'active' ? 'status-acknowledged' : 'status-pending'}`}>
+                    {effectiveStatus(u) === 'active' ? 'Active' : 'Inactive'}
                   </span>
+                  {pendingChanges[`${u.id}_status`] && <div className="info-text" style={{ marginTop: '0.25rem' }}>Pending review</div>}
                 </td>
                 <td className="team-actions">
                   {u.role === 'planner' && (
@@ -340,7 +397,7 @@ const TeamManagement = () => {
                     Reset Password
                   </button>
                   <button className="action-btn" disabled={busyUserId === u.id} onClick={() => handleToggleStatus(u)}>
-                    {u.status === 'active' ? 'Deactivate' : 'Activate'}
+                    {effectiveStatus(u) === 'active' ? 'Deactivate' : 'Activate'}
                   </button>
                   {u.id !== user?.id && (
                     <button className="action-btn action-btn-danger" disabled={busyUserId === u.id} onClick={() => handleDelete(u)}>
@@ -349,9 +406,21 @@ const TeamManagement = () => {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
+
+        {Object.keys(pendingChanges).length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
+            <button type="button" className="btn-secondary" onClick={discardPendingChanges}>
+              Discard Changes
+            </button>
+            <button type="button" className="cta-button" style={{ marginTop: 0 }} onClick={() => setShowReviewModal(true)}>
+              Review {Object.keys(pendingChanges).length} Change{Object.keys(pendingChanges).length !== 1 ? 's' : ''}
+            </button>
+          </div>
+        )}
       </div>
 
       {showAddForm && (
@@ -417,6 +486,47 @@ const TeamManagement = () => {
                 <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Create Account'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showReviewModal && (
+        <div className="summary-modal-overlay" onClick={() => setShowReviewModal(false)}>
+          <div className="summary-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="summary-modal-header">
+              <h2>Review Changes</h2>
+              <button className="summary-modal-close" onClick={() => setShowReviewModal(false)}>×</button>
+            </div>
+            <div className="summary-modal-body">
+              <p className="info-text" style={{ marginBottom: '1rem' }}>
+                Nothing has been saved yet. Confirm to apply these changes, or go back and keep editing.
+              </p>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(pendingChanges).map((change) => (
+                    <tr key={`${change.targetUser.id}_${change.field}`}>
+                      <td><strong>{change.targetUser.full_name}</strong></td>
+                      <td>{describeChange(change)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="button-group" style={{ marginTop: '1.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowReviewModal(false)} disabled={applyingChanges}>
+                  Keep Editing
+                </button>
+                <button type="button" className="btn-primary" onClick={applyPendingChanges} disabled={applyingChanges}>
+                  {applyingChanges ? 'Applying...' : 'Confirm & Apply'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

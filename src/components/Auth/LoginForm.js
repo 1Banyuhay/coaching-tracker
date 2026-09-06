@@ -45,8 +45,8 @@ const LoginForm = () => {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <p className="login-brand">1Sang Banyuhay Financial Group</p>
-          <h1>Coaching Hub</h1>
+          <p className="login-brand">1SANG BANYUHAY FINANCIAL GROUP</p>
+          <h1>COACHING HUB</h1>
           <p>Sign in to your account</p>
         </div>
 

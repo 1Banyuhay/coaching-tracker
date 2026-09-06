@@ -10,7 +10,10 @@ import './CoachingFormWizard.css';
 
 // "Others" is always available as a catch-all with a free-text field below
 // it - every other choice comes from Admin's Coaching Topics list, scoped
-// to whichever role is doing the coaching (Manager or Senior Manager).
+// to who is being coached (Planner vs Manager), not who's doing the
+// coaching - a Senior Manager coaching a Manager needs leadership/
+// management topics, while anyone coaching a Planner needs the regular
+// product/sales ones.
 const FALLBACK_TOPIC = 'Others';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
@@ -85,11 +88,9 @@ const CoachingFormWizard = () => {
   }, [user?.id, user?.role, recipientType, followUpFrom, recipientLabel]);
 
   useEffect(() => {
-    if (!user?.role) return;
-
     const loadTopics = async () => {
       try {
-        const list = await topicsService.getTopicsForRole(user.role);
+        const list = await topicsService.getTopicsForRole(recipientType);
         setTopicOptions(list.map((t) => t.name));
       } catch (error) {
         console.error('Error loading topics:', error);
@@ -98,7 +99,7 @@ const CoachingFormWizard = () => {
     };
 
     loadTopics();
-  }, [user?.role]);
+  }, [recipientType]);
 
   const finalTopic = useMemo(() => (topic === FALLBACK_TOPIC ? customTopic.trim() : topic), [topic, customTopic]);
 

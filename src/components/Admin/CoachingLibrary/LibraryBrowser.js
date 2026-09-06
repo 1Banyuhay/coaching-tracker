@@ -4,27 +4,30 @@ import toast from 'react-hot-toast';
 import '../../Manager/ManagerDashboard.css';
 import '../../Manager/TeamManagement.css';
 
-// Which roles a topic can be picked by - only Manager and Senior Manager
-// ever log a coaching session, so those are the only two options here
-// (unlike Useful Links, which also offers Planner).
+// Which recipient a topic applies to - i.e. who is being coached in the
+// session, not who's doing the coaching. Coaching a Planner (whether by a
+// Manager or a Senior Manager) is one case; a Senior Manager coaching a
+// Manager directly is the other, and usually calls for different,
+// leadership/management-focused topics.
 const ROLE_OPTIONS = [
+  { value: 'planner', label: 'Planner' },
   { value: 'manager', label: 'Manager' },
-  { value: 'senior_manager', label: 'Senior Manager' },
 ];
-const ROLE_LABELS = { manager: 'Manager', senior_manager: 'Senior Manager' };
+const ROLE_LABELS = { planner: 'Planner', manager: 'Manager' };
 
 const visibilityLabel = (roles) => {
   if (!roles || roles.length === 0) return 'Hidden from everyone (draft)';
-  if (roles.length === ROLE_OPTIONS.length) return 'Manager & Senior Manager';
-  return roles.map((r) => ROLE_LABELS[r] || r).join(', ');
+  if (roles.length === ROLE_OPTIONS.length) return 'Coaching a Planner or a Manager';
+  return roles.map((r) => `Coaching a ${ROLE_LABELS[r] || r}`).join(', ');
 };
 
-const emptyForm = { name: '', visibleRoles: ['manager', 'senior_manager'] };
+const emptyForm = { name: '', visibleRoles: ['planner'] };
 
 // Admin-only: the list of topics available in the "Coaching Focus Area"
-// step of a coaching log, and which of Manager/Senior Manager can pick
-// each one. Manager and Senior Manager only ever read this list (via
-// topicsService.getTopicsForRole) - they never see this page.
+// step of a coaching log, and whether each one shows up when the person
+// being coached is a Planner, a Manager, or both. Manager and Senior
+// Manager only ever read this list (via topicsService.getTopicsForRole,
+// keyed by recipient type) - they never see this page.
 const LibraryBrowser = () => {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +140,9 @@ const LibraryBrowser = () => {
       <div className="card">
         <p className="info-text" style={{ marginBottom: '1.25rem' }}>
           These are the choices Managers and Senior Managers see under "Coaching Focus Area" when logging a
-          session. Pick who each topic is available to below.
+          session. Pick whether each topic should show up when coaching a Planner, a Manager, or both -
+          leadership/management topics typically apply to Manager sessions, while product and sales topics
+          apply to Planner sessions.
         </p>
 
         {topics.length === 0 ? (
@@ -147,7 +152,7 @@ const LibraryBrowser = () => {
             <thead>
               <tr>
                 <th>Topic</th>
-                <th>Available To</th>
+                <th>Shown When Coaching</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -190,7 +195,7 @@ const LibraryBrowser = () => {
                 placeholder="e.g. Objection-Handling"
               />
 
-              <label className="field-label">Available to</label>
+              <label className="field-label">Shown when coaching a</label>
               <div className="role-checkbox-group">
                 {ROLE_OPTIONS.map((opt) => (
                   <label key={opt.value} className="role-checkbox">

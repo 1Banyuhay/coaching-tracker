@@ -16,6 +16,7 @@ import ManagerDashboard from './components/Manager/ManagerDashboard';
 import SeniorManagerDashboard from './components/Manager/SeniorManagerDashboard';
 import CoachingFormWizard from './components/Manager/CoachingForm/CoachingFormWizard';
 import PlannerProfile from './components/Manager/PlannerProfile';
+import MyPlanners from './components/Manager/MyPlanners';
 import TeamManagement from './components/Manager/TeamManagement';
 import UsefulLinksPage from './components/Layout/UsefulLinksPage';
 
@@ -134,11 +135,7 @@ function App() {
                 path="/manager/planners"
                 element={
                   <ProtectedRoute requiredRole="manager">
-                    <Placeholder
-                      title="My Planners"
-                      message="Access and manage your team of financial planners (coming soon)"
-                      backLink="/manager/dashboard"
-                    />
+                    <MyPlanners />
                   </ProtectedRoute>
                 }
               />

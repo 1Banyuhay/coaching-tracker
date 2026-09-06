@@ -2,8 +2,10 @@ import { supabaseClient } from '../config/supabase';
 
 // The list of topics a Manager or Senior Manager can pick from in the
 // "Coaching Focus Area" step of a coaching log - previously a hardcoded
-// list baked into the form itself. Now Admin-managed, with per-role
-// visibility (a topic can be shown to Manager, Senior Manager, or both).
+// list baked into the form itself. Now Admin-managed, with visibility
+// keyed by WHO IS BEING COACHED (Planner or Manager) rather than who's
+// doing the coaching - a topic can be shown for Planner sessions,
+// Manager sessions (i.e. a Senior Manager coaching a Manager), or both.
 
 export const topicsService = {
   // Every topic regardless of visibility - for Admin's management page.
@@ -17,13 +19,14 @@ export const topicsService = {
     return data || [];
   },
 
-  // Only the topics a given role (manager/senior_manager) is allowed to
-  // see when logging a coaching session.
-  async getTopicsForRole(role) {
+  // Only the topics available for a given recipient type - 'planner' or
+  // 'manager' (i.e. who is being coached in this session, not who's doing
+  // the coaching).
+  async getTopicsForRole(recipientType) {
     const { data, error } = await supabaseClient
       .from('session_topics')
       .select('*')
-      .contains('visible_roles', [role])
+      .contains('visible_roles', [recipientType])
       .order('name', { ascending: true });
 
     if (error) throw error;
