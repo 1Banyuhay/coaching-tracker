@@ -161,6 +161,26 @@ function App() {
                 }
               />
 
+              {/* Sales Cycle / Income Simulation - placeholders, content to
+                  follow. Open to every logged-in role, same as Useful
+                  Links. */}
+              <Route
+                path="/sales-cycle"
+                element={
+                  <ProtectedRoute>
+                    <Placeholder title="Sales Cycle" message="Content to follow." />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/income-simulation"
+                element={
+                  <ProtectedRoute>
+                    <Placeholder title="Income Simulation" message="Content to follow." />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Admin Routes */}
               <Route
                 path="/admin/dashboard"

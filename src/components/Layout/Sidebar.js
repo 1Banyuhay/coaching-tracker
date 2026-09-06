@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Users, Settings, CheckCircle2, BookOpen, Link2, X } from 'lucide-react';
+import { BarChart3, Users, Settings, CheckCircle2, BookOpen, Link2, TrendingUp, Calculator, X } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ role }) => {
@@ -19,6 +19,16 @@ const Sidebar = ({ role }) => {
             label: 'Manage Team',
             path: '/senior-manager/team',
             icon: <Users size={20} />,
+          },
+          {
+            label: 'Sales Cycle',
+            path: '/sales-cycle',
+            icon: <TrendingUp size={20} />,
+          },
+          {
+            label: 'Income Simulation',
+            path: '/income-simulation',
+            icon: <Calculator size={20} />,
           },
           {
             label: 'Useful Links',
@@ -40,6 +50,16 @@ const Sidebar = ({ role }) => {
             icon: <Users size={20} />,
           },
           {
+            label: 'Sales Cycle',
+            path: '/sales-cycle',
+            icon: <TrendingUp size={20} />,
+          },
+          {
+            label: 'Income Simulation',
+            path: '/income-simulation',
+            icon: <Calculator size={20} />,
+          },
+          {
             label: 'Useful Links',
             path: '/links',
             icon: <Link2 size={20} />,
@@ -57,6 +77,16 @@ const Sidebar = ({ role }) => {
             label: 'Pending Confirmations',
             path: '/planner/confirmations',
             icon: <CheckCircle2 size={20} />,
+          },
+          {
+            label: 'Sales Cycle',
+            path: '/sales-cycle',
+            icon: <TrendingUp size={20} />,
+          },
+          {
+            label: 'Income Simulation',
+            path: '/income-simulation',
+            icon: <Calculator size={20} />,
           },
           {
             label: 'Useful Links',
@@ -86,6 +116,16 @@ const Sidebar = ({ role }) => {
             label: 'Settings',
             path: '/admin/settings',
             icon: <Settings size={20} />,
+          },
+          {
+            label: 'Sales Cycle',
+            path: '/sales-cycle',
+            icon: <TrendingUp size={20} />,
+          },
+          {
+            label: 'Income Simulation',
+            path: '/income-simulation',
+            icon: <Calculator size={20} />,
           },
           {
             label: 'Useful Links',
