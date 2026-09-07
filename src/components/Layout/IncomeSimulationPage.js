@@ -193,7 +193,7 @@ const IncomeSimulationPage = () => {
   const [goalMode, setGoalMode] = useState(saved?.goalMode || 'annual');
   const [months, setMonths] = useState(saved?.months?.length === 12 ? saved.months : defaultMonths);
   const [partners, setPartners] = useState(saved?.partners?.length === 12 ? saved.partners : defaultPartners);
-  const [openOrcMonth, setOpenOrcMonth] = useState(null);
+  const [openMonth, setOpenMonth] = useState(null);
 
   useEffect(() => {
     try {
@@ -214,7 +214,7 @@ const IncomeSimulationPage = () => {
     setPartners((prev) =>
       prev.map((list, i) =>
         i === monthIndex
-          ? [...list, { id: `${Date.now()}-${Math.random()}`, name: '', structure: 'direct', cases: 0, size: 24000, mode: 'annual' }]
+          ? [...list, { id: `${Date.now()}-${Math.random()}`, name: '', structure: 'direct', cases: 0, size: 36000, mode: 'annual' }]
           : list
       )
     );
@@ -247,7 +247,7 @@ const IncomeSimulationPage = () => {
     setGoalMode('annual');
     setMonths(defaultMonths());
     setPartners(defaultPartners());
-    setOpenOrcMonth(null);
+    setOpenMonth(null);
   };
 
   const calc = useMemo(() => {
@@ -255,6 +255,7 @@ const IncomeSimulationPage = () => {
     const p = Number(persistency) || 0;
     const fycSchedule = Array(12).fill(0);
     const orcSchedule = Array(12).fill(0);
+    const fycContrib = Array.from({ length: 12 }, () => []);
     const orcContrib = Array.from({ length: 12 }, () => []);
 
     const isFwm = role === 'fwm';
@@ -279,7 +280,7 @@ const IncomeSimulationPage = () => {
     // Within Year" the same way.
     const withFyc = personal.map((x, i) => {
       const fullFyc = x.ape * rate;
-      const initialFyc = addSchedule(fycSchedule, i, fullFyc, x.mode);
+      const initialFyc = addSchedule(fycSchedule, i, fullFyc, x.mode, fycContrib, 'Self');
       let personalOrc = 0;
       let initialPersonalOrc = 0;
       if (isFwm) {
@@ -372,6 +373,7 @@ const IncomeSimulationPage = () => {
         ...x, mvbRate, mvb, mcb, income, accumulatedFyc: fycSchedule[i],
         activeAgentCount, maabTier, maabRate, maab,
         orc: orcSchedule[i], orcContributions: orcContrib[i],
+        fyc: fycSchedule[i], fycContributions: fycContrib[i],
       };
     });
 
@@ -578,6 +580,7 @@ const IncomeSimulationPage = () => {
                 <th>Payment Mode</th>
                 <th>Initial FYC</th>
                 <th>Full Year FYC</th>
+                <th>FYC Received This Month</th>
                 <th>MCB Case</th>
                 <th>MCB Amount</th>
                 <th>MVB Rate</th>
@@ -634,6 +637,15 @@ const IncomeSimulationPage = () => {
                       </td>
                       <td>{money(row.initialFyc)}</td>
                       <td>{money(row.fullFyc)}</td>
+                      <td className="is-bonus">
+                        <button
+                          type="button"
+                          className="is-orc-link"
+                          onClick={() => setOpenMonth(openMonth === i ? null : i)}
+                        >
+                          {money(row.fyc)}
+                        </button>
+                      </td>
                       <td>{row.mcbCase}</td>
                       <td className="is-bonus">{money(row.mcb)}</td>
                       <td>{row.mvbRate ? `${(row.mvbRate * 100).toFixed(1)}%` : '—'}</td>
@@ -645,7 +657,7 @@ const IncomeSimulationPage = () => {
                           <button
                             type="button"
                             className="is-orc-link"
-                            onClick={() => setOpenOrcMonth(openOrcMonth === i ? null : i)}
+                            onClick={() => setOpenMonth(openMonth === i ? null : i)}
                           >
                             {money(row.orc)}
                           </button>
@@ -658,7 +670,7 @@ const IncomeSimulationPage = () => {
                           <button
                             type="button"
                             className="is-orc-link"
-                            onClick={() => setOpenOrcMonth(openOrcMonth === i ? null : i)}
+                            onClick={() => setOpenMonth(openMonth === i ? null : i)}
                           >
                             {money(row.maab)}
                           </button>
@@ -666,23 +678,44 @@ const IncomeSimulationPage = () => {
                       )}
                       <td className="is-income">{money(row.income)}</td>
                     </tr>
-                    {calc.hasPartners && openOrcMonth === i && (
+                    {openMonth === i && (
                       <tr className="is-orc-breakdown">
-                        <td colSpan={calc.isFwm ? 18 : 13}>
+                        <td colSpan={calc.isFwm ? 19 : calc.hasPartners ? 14 : 13}>
                           <div className="is-orc-breakdown-box">
-                            <strong>Where {label}&apos;s ORC comes from</strong>
-                            {row.orcContributions.length > 0 ? (
+                            <strong>Where {label}&apos;s FYC comes from</strong>
+                            {row.fycContributions.length > 0 ? (
                               <ul>
-                                {row.orcContributions.map((c, ci) => (
+                                {row.fycContributions.map((c, ci) => (
                                   <li key={ci}>
                                     {c.label} — {c.sourceMonth} production: {money(c.amount)}
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p>No production has scheduled an ORC payout into {label} yet.</p>
+                              <p>No production has scheduled an FYC payout into {label} yet.</p>
                             )}
-                            <p className="is-orc-total">Total ORC received in {label}: <strong>{money(row.orc)}</strong></p>
+                            <p className="is-orc-total">
+                              Total FYC received in {label}: <strong>{money(row.fyc)}</strong>
+                              {row.fycContributions.length > 1 && ' (still-paying installments from earlier months stack on top of this month\u2019s own)'}
+                            </p>
+
+                            {calc.hasPartners && (
+                              <>
+                                <strong style={{ marginTop: '0.75rem' }}>Where {label}&apos;s ORC comes from</strong>
+                                {row.orcContributions.length > 0 ? (
+                                  <ul>
+                                    {row.orcContributions.map((c, ci) => (
+                                      <li key={ci}>
+                                        {c.label} — {c.sourceMonth} production: {money(c.amount)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p>No production has scheduled an ORC payout into {label} yet.</p>
+                                )}
+                                <p className="is-orc-total">Total ORC received in {label}: <strong>{money(row.orc)}</strong></p>
+                              </>
+                            )}
                             {calc.isFwm && (
                               <p className="is-orc-total">
                                 MAAB: {row.activeAgentCount} active agent{row.activeAgentCount === 1 ? '' : 's'}
@@ -695,7 +728,7 @@ const IncomeSimulationPage = () => {
                     )}
                     {calc.hasPartners && (
                       <tr className="is-partner-zone">
-                        <td colSpan={calc.isFwm ? 18 : 13}>
+                        <td colSpan={calc.isFwm ? 19 : 14}>
                           <div className="is-partner-tools">
                             <button type="button" className="action-btn" onClick={() => addPartner(i)}>
                               <Plus size={14} style={{ marginRight: '0.25rem' }} /> Add Business Partner
@@ -740,6 +773,7 @@ const IncomeSimulationPage = () => {
                                         step="1"
                                         value={bp.cases}
                                         onChange={(e) => updatePartner(i, bp.id, 'cases', e.target.value)}
+                                        onFocus={(e) => e.target.select()}
                                       />
                                     </div>
                                     <div className="is-partner-field">
@@ -808,6 +842,7 @@ const IncomeSimulationPage = () => {
                 <td>—</td>
                 <td>{money(calc.totals.initialFyc)}</td>
                 <td>{money(calc.totals.fullFyc)}</td>
+                <td>{money(calc.fycWithinYear)}</td>
                 <td>{calc.totals.mcbCase}</td>
                 <td>{money(calc.totals.mcb)}</td>
                 <td>—</td>
