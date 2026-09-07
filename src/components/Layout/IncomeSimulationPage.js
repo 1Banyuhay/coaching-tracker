@@ -261,7 +261,7 @@ const IncomeSimulationPage = () => {
 
     const totals = {
       cases: 0, mcbCase: 0, ape: 0, initialFyc: 0, fullFyc: 0,
-      initialPersonalOrc: 0, personalOrc: 0, mvb: 0, mcb: 0, income: 0,
+      initialPersonalOrc: 0, personalOrc: 0, mvb: 0, mcb: 0, maab: 0, income: 0,
     };
 
     // A Financial Wealth Manager also earns an override on their OWN
@@ -330,50 +330,57 @@ const IncomeSimulationPage = () => {
     // Team APE too, alongside their Business Partners'.
     if (isFwm) teamApe += totals.ape;
 
+    // MAAB is evaluated fresh each month: an agent (self or a Business
+    // Partner) is "active" that month once their APE for that month
+    // reaches ACTIVE_APE_THRESHOLD. The active-agent count for the month
+    // sets that month's tier, and the tier's rate applies to that
+    // month's own ORC (self + team) - so the MAAB amount can change
+    // month to month as the team's production changes.
     const monthlyIncome = [];
     const rows = withFyc.map((x, i) => {
       const mvbRate = volumeRate(x.ape, p);
       const mvb = fycSchedule[i] * mvbRate;
       const mcb = caseBonus(x.mcbCase);
-      const income = fycSchedule[i] + mvb + mcb + orcSchedule[i];
+
+      let activeAgentCount = 0;
+      let maabTier = null;
+      let maabRate = 0;
+      let maab = 0;
+      if (isFwm) {
+        activeAgentCount = (x.ape >= ACTIVE_APE_THRESHOLD ? 1 : 0)
+          + partnersComputed[i].filter((bp) => bp.ape >= ACTIVE_APE_THRESHOLD).length;
+        maabTier = maabTierFor(activeAgentCount);
+        maabRate = maabTier ? maabTier.rate : 0;
+        maab = maabRate * orcSchedule[i];
+      }
+
+      const income = fycSchedule[i] + mvb + mcb + orcSchedule[i] + maab;
       monthlyIncome.push(income);
       totals.mvb += mvb;
       totals.mcb += mcb;
+      totals.maab += maab;
       totals.income += income;
-      return { ...x, mvbRate, mvb, mcb, income, accumulatedFyc: fycSchedule[i] };
+      return {
+        ...x, mvbRate, mvb, mcb, income, accumulatedFyc: fycSchedule[i],
+        activeAgentCount, maabTier, maabRate, maab,
+      };
     });
 
     const fycWithinYear = fycSchedule.reduce((a, b) => a + b, 0);
     const overrideIncome = orcSchedule.reduce((a, b) => a + b, 0);
 
-    // MAAB: an "active agent" is self or a Business Partner whose total
-    // annual APE reaches ACTIVE_APE_THRESHOLD. Each person is deduped by
-    // name (case/space-insensitive) and only counted once for the year,
-    // even if they appear in multiple months. The resulting count is
-    // looked up against MAAB_TIERS and the matching rate is applied to
-    // the full-year ORC total (self + team) to get an annual MAAB amount.
-    const partnerApeByKey = new Map();
-    if (isFwm) {
-      partnersComputed.forEach((list) => {
-        list.forEach((bp) => {
-          const key = (bp.name || '').trim().toLowerCase() || `id:${bp.id}`;
-          partnerApeByKey.set(key, (partnerApeByKey.get(key) || 0) + bp.ape);
-        });
-      });
-    }
-    let activeAgentCount = 0;
-    if (isFwm) {
-      partnerApeByKey.forEach((ape) => {
-        if (ape >= ACTIVE_APE_THRESHOLD) activeAgentCount += 1;
-      });
-      if (totals.ape >= ACTIVE_APE_THRESHOLD) activeAgentCount += 1; // self
-    }
-    const maabTier = isFwm ? maabTierFor(activeAgentCount) : null;
-    const maabRate = maabTier ? maabTier.rate : 0;
-    const maabNext = isFwm ? maabNextTier(activeAgentCount) : null;
-    const annualMaab = maabRate * overrideIncome;
-    totals.maab = annualMaab;
-    totals.income += annualMaab;
+    // A single "current status" snapshot for the MAAB Status card, using
+    // December (the last month of the plan) as the year-end read on
+    // active-agent count/tier - MAAB itself is already fully computed
+    // and folded in per month above.
+    const maabStatus = isFwm ? {
+      count: rows[11].activeAgentCount,
+      tier: rows[11].maabTier,
+      rate: rows[11].maabRate,
+      amount: rows[11].maab,
+      orc: orcSchedule[11],
+      next: maabNextTier(rows[11].activeAgentCount),
+    } : null;
 
     const goal = Number(incomeGoal) || 0;
     const annualGoal = goalMode === 'monthly' ? goal * 12 : goalMode === 'quarterly' ? goal * 4 : goal;
@@ -393,7 +400,7 @@ const IncomeSimulationPage = () => {
 
     return {
       rows, totals, fycWithinYear, overrideIncome, teamApe, teamFullFyc, teamCases, hasPartners, isFwm,
-      activeAgentCount, maabTier, maabRate, maabNext, annualMaab,
+      maabStatus,
       partnersComputed, monthlyIncome, goal, annualGoal, goalBasisIncome, pct, gap, aboveGoal, extra, recommended,
     };
   }, [months, partners, commission, persistency, role, incomeGoal, goalMode]);
@@ -529,7 +536,7 @@ const IncomeSimulationPage = () => {
         </article>
         <article className="metric-card">
           <div className="metric-label">Total Bonuses</div>
-          <div className="is-metric-value">{money(calc.totals.mvb + calc.totals.mcb + calc.annualMaab)}</div>
+          <div className="is-metric-value">{money(calc.totals.mvb + calc.totals.mcb + calc.totals.maab)}</div>
         </article>
       </div>
 
@@ -582,6 +589,9 @@ const IncomeSimulationPage = () => {
                 <th>MVB Amount</th>
                 {calc.isFwm && <th>Initial Personal ORC</th>}
                 {calc.isFwm && <th>Full Year Personal ORC</th>}
+                {calc.isFwm && <th>Active Agents</th>}
+                {calc.isFwm && <th>MAAB Rate</th>}
+                {calc.isFwm && <th>MAAB Amount</th>}
                 <th>Total Earnings</th>
               </tr>
             </thead>
@@ -633,11 +643,14 @@ const IncomeSimulationPage = () => {
                       <td className="is-bonus">{money(row.mvb)}</td>
                       {calc.isFwm && <td className="is-bonus">{money(row.initialPersonalOrc)}</td>}
                       {calc.isFwm && <td className="is-bonus">{money(row.personalOrc)}</td>}
+                      {calc.isFwm && <td>{row.activeAgentCount}</td>}
+                      {calc.isFwm && <td>{row.maabTier ? `${(row.maabRate * 100).toFixed(0)}%` : '—'}</td>}
+                      {calc.isFwm && <td className="is-bonus">{money(row.maab)}</td>}
                       <td className="is-income">{money(row.income)}</td>
                     </tr>
                     {calc.hasPartners && (
                       <tr className="is-partner-zone">
-                        <td colSpan={calc.isFwm ? 14 : 12}>
+                        <td colSpan={calc.isFwm ? 17 : 12}>
                           <div className="is-partner-tools">
                             <button type="button" className="action-btn" onClick={() => addPartner(i)}>
                               <Plus size={14} style={{ marginRight: '0.25rem' }} /> Add Business Partner
@@ -756,6 +769,9 @@ const IncomeSimulationPage = () => {
                 <td>{money(calc.totals.mvb)}</td>
                 {calc.isFwm && <td>{money(calc.totals.initialPersonalOrc)}</td>}
                 {calc.isFwm && <td>{money(calc.totals.personalOrc)}</td>}
+                {calc.isFwm && <td>—</td>}
+                {calc.isFwm && <td>—</td>}
+                {calc.isFwm && <td>{money(calc.totals.maab)}</td>}
                 <td>{money(calc.totals.income)}</td>
               </tr>
             </tfoot>
@@ -763,35 +779,43 @@ const IncomeSimulationPage = () => {
         </div>
       </div>
 
-      {calc.isFwm && (
+      {calc.isFwm && calc.maabStatus && (
         <div className="card is-maab-status">
           <h2 className="section-title">MAAB Status</h2>
+          <p className="is-hint" style={{ marginBottom: '0.75rem' }}>
+            MAAB is evaluated fresh every month based on that month&apos;s active agents — see the Active Agents /
+            MAAB columns in the table above for each month&apos;s own count and amount. December (year-end) is
+            shown below.
+          </p>
           <div className="is-maab-readout">
             <span className="is-maab-count">
-              MAAB: {calc.activeAgentCount} = {(calc.maabRate * 100).toFixed(0)}%
+              December: {calc.maabStatus.count} active agent{calc.maabStatus.count === 1 ? '' : 's'} = {(calc.maabStatus.rate * 100).toFixed(0)}%
             </span>
-            <span className="is-maab-amount">{money(calc.annualMaab)}</span>
+            <span className="is-maab-amount">{money(calc.maabStatus.amount)}</span>
           </div>
-          {calc.maabTier ? (
+          {calc.maabStatus.tier ? (
             <p className="is-hint">
-              Currently in the <strong>{calc.maabTier.tier}</strong> tier with {calc.activeAgentCount} active
-              agent{calc.activeAgentCount === 1 ? '' : 's'} (including self).
+              December sits in the <strong>{calc.maabStatus.tier.tier}</strong> tier with {calc.maabStatus.count}{' '}
+              active agent{calc.maabStatus.count === 1 ? '' : 's'} (including self).
             </p>
           ) : (
             <p className="is-hint">
-              Not yet qualified for MAAB. {3 - calc.activeAgentCount} more active
-              agent{3 - calc.activeAgentCount === 1 ? '' : 's'} (at least ₱10,000 APE each) would reach the Base
-              tier (10%) — potential annual MAAB at that tier: <strong>{money(calc.overrideIncome * 0.10)}</strong>.
+              Not yet qualified for MAAB in December. {3 - calc.maabStatus.count} more active
+              agent{3 - calc.maabStatus.count === 1 ? '' : 's'} (at least ₱10,000 APE that month) would reach the
+              Base tier (10%) — potential MAAB that month: <strong>{money(calc.maabStatus.orc * 0.10)}</strong>.
             </p>
           )}
-          {calc.maabNext && (
+          {calc.maabStatus.next && (
             <p className="is-hint">
-              {calc.maabNext.minAgents - calc.activeAgentCount} more active
-              agent{calc.maabNext.minAgents - calc.activeAgentCount === 1 ? '' : 's'} would reach
-              the <strong>{calc.maabNext.tier}</strong> tier ({(calc.maabNext.rate * 100).toFixed(0)}%) — potential
-              annual MAAB: <strong>{money(calc.overrideIncome * calc.maabNext.rate)}</strong>.
+              {calc.maabStatus.next.minAgents - calc.maabStatus.count} more active
+              agent{calc.maabStatus.next.minAgents - calc.maabStatus.count === 1 ? '' : 's'} in December would
+              reach the <strong>{calc.maabStatus.next.tier}</strong> tier ({(calc.maabStatus.next.rate * 100).toFixed(0)}%)
+              — potential MAAB that month: <strong>{money(calc.maabStatus.orc * calc.maabStatus.next.rate)}</strong>.
             </p>
           )}
+          <p className="is-hint" style={{ marginTop: '0.75rem' }}>
+            Total MAAB earned across the year: <strong>{money(calc.totals.maab)}</strong>
+          </p>
         </div>
       )}
 
