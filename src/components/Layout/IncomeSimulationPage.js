@@ -608,6 +608,7 @@ const IncomeSimulationPage = () => {
                           value={months[i].cases}
                           aria-label={`${label} case count`}
                           onChange={(e) => updateMonth(i, 'cases', e.target.value)}
+                          onFocus={(e) => e.target.select()}
                         />
                       </td>
                       <td>
