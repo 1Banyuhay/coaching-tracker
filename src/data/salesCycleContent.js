@@ -11,11 +11,11 @@ export const overview = {
   stagesTable: {
     headers: ['Stage', 'Primary Goal', 'Brand Experience'],
     rows: [
-      ['1. Prospecting', 'Find and qualify people you can help', 'Relevant and approachable'],
-      ['2. Presentation', 'Understand needs and make the problem visible', 'Competent and client-centered'],
-      ['3. Objection-Handling', 'Clarify what prevents a confident decision', 'Patient, honest, and educational'],
-      ['4. Closing', 'Guide an informed and responsible decision', 'Clear and respectful'],
-      ['5. Maximizing Sales', 'Build a long-term relationship and advocacy', 'Present and dependable'],
+      ['1. PROSPECTING', 'Find and qualify people you can help', 'Relevant and approachable'],
+      ['2. PRESENTATION', 'Understand needs and make the problem visible', 'Competent and client-centered'],
+      ['3. OBJECTION-HANDLING', 'Clarify what prevents a confident decision', 'Patient, honest, and educational'],
+      ['4. CLOSING', 'Guide an informed and responsible decision', 'Clear and respectful'],
+      ['5. MAXIMIZING SALES', 'Build a long-term relationship and advocacy', 'Present and dependable'],
     ],
   },
   cycleNote:
@@ -28,7 +28,7 @@ export const topics = [
     key: 'branding',
     order: 0,
     isCenter: true,
-    label: 'Branding',
+    label: 'BRANDING',
     shortLabel: 'BRANDING',
     color: '#a85a2b',
     tagline: 'The core that connects every stage',
@@ -132,7 +132,7 @@ export const topics = [
   {
     key: 'prospecting',
     order: 1,
-    label: '1. Prospecting',
+    label: '1. PROSPECTING',
     shortLabel: 'PROSPECTING',
     color: '#8b3a3a',
     goal: 'Find, qualify, and connect with people you may genuinely be able to help.',
@@ -178,7 +178,7 @@ export const topics = [
   {
     key: 'presentation',
     order: 2,
-    label: '2. Presentation',
+    label: '2. PRESENTATION',
     shortLabel: 'PRESENTATION',
     color: '#9d5220',
     goal: "Understand the client's situation and help the client recognize the need for a solution.",
@@ -222,7 +222,7 @@ export const topics = [
   {
     key: 'objectionHandling',
     order: 3,
-    label: '3. Objection-Handling',
+    label: '3. OBJECTION-HANDLING',
     shortLabel: 'OBJECTION HANDLING',
     color: '#6b4423',
     goal: 'Understand what is preventing the client from confidently moving forward.',
@@ -270,7 +270,7 @@ export const topics = [
   {
     key: 'closing',
     order: 4,
-    label: '4. Closing',
+    label: '4. CLOSING',
     shortLabel: 'CLOSING',
     color: '#b8763f',
     goal: 'Help the client make a clear, informed, and responsible decision.',
@@ -307,7 +307,7 @@ export const topics = [
   {
     key: 'maximizingSales',
     order: 5,
-    label: '5. Maximizing Sales',
+    label: '5. MAXIMIZING SALES',
     shortLabel: 'MAXIMIZING SALES',
     color: '#c9975c',
     goal: 'Turn a completed transaction into a long-term client relationship.',
