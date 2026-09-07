@@ -649,7 +649,15 @@ const IncomeSimulationPage = () => {
                       <td>{row.mcbCase}</td>
                       <td className="is-bonus">{money(row.mcb)}</td>
                       <td>{row.mvbRate ? `${(row.mvbRate * 100).toFixed(1)}%` : '—'}</td>
-                      <td className="is-bonus">{money(row.mvb)}</td>
+                      <td className="is-bonus">
+                        <button
+                          type="button"
+                          className="is-orc-link"
+                          onClick={() => setOpenMonth(openMonth === i ? null : i)}
+                        >
+                          {money(row.mvb)}
+                        </button>
+                      </td>
                       {calc.isFwm && <td className="is-bonus">{money(row.initialPersonalOrc)}</td>}
                       {calc.isFwm && <td className="is-bonus">{money(row.personalOrc)}</td>}
                       {calc.hasPartners && (
@@ -697,6 +705,9 @@ const IncomeSimulationPage = () => {
                             <p className="is-orc-total">
                               Total FYC received in {label}: <strong>{money(row.fyc)}</strong>
                               {row.fycContributions.length > 1 && ' (still-paying installments from earlier months stack on top of this month\u2019s own)'}
+                            </p>
+                            <p className="is-orc-total">
+                              MVB: {row.mvbRate ? `${(row.mvbRate * 100).toFixed(1)}% × ${money(row.fyc)} = ${money(row.mvb)}` : 'not qualified this month (needs ≥₱50,000 own APE and ≥70% persistency)'}
                             </p>
 
                             {calc.hasPartners && (
