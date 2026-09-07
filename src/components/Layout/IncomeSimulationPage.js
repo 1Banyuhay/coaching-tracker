@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import '../Manager/ManagerDashboard.css';
 import './IncomeSimulationPage.css';
 
@@ -140,6 +141,8 @@ const MoneyInput = ({ value, onChange, className, ariaLabel, prefix }) => (
 );
 
 const IncomeSimulationPage = () => {
+  const { user } = useAuth();
+  const canEnterPlannerName = user?.role && user.role !== 'planner';
   const saved = useMemo(loadSaved, []);
 
   const [plannerName, setPlannerName] = useState(saved?.plannerName || '');
@@ -309,20 +312,21 @@ const IncomeSimulationPage = () => {
       </div>
 
       <div className="card">
-        <h2 className="section-title">Simulation Assumptions</h2>
         <div className="is-controls">
-          <div className="is-field">
-            <label htmlFor="is-plannerName">Planner&apos;s Name</label>
-            <div className="is-input-wrap">
-              <input
-                id="is-plannerName"
-                type="text"
-                placeholder="Enter name"
-                value={plannerName}
-                onChange={(e) => setPlannerName(e.target.value)}
-              />
+          {canEnterPlannerName && (
+            <div className="is-field">
+              <label htmlFor="is-plannerName">Planner&apos;s Name</label>
+              <div className="is-input-wrap">
+                <input
+                  id="is-plannerName"
+                  type="text"
+                  placeholder="Enter name"
+                  value={plannerName}
+                  onChange={(e) => setPlannerName(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="is-field">
             <label htmlFor="is-role">Role</label>
@@ -336,7 +340,7 @@ const IncomeSimulationPage = () => {
 
           <div className="is-field">
             <label htmlFor="is-commission">Estimated Commission Rate</label>
-            <div className="is-input-wrap">
+            <div className="is-input-wrap is-narrow">
               <input
                 id="is-commission"
                 type="number"
@@ -352,7 +356,7 @@ const IncomeSimulationPage = () => {
 
           <div className="is-field">
             <label htmlFor="is-persistency">Personal Persistency</label>
-            <div className="is-input-wrap">
+            <div className="is-input-wrap is-narrow">
               <input
                 id="is-persistency"
                 type="number"
@@ -413,49 +417,19 @@ const IncomeSimulationPage = () => {
             </span>
           </div>
         </div>
-
-        <div className="is-recommendation">
-          <div className="is-rec-icon">✓</div>
-          <div>
-            {!calc.goal ? (
-              <>
-                <strong>Enter an income goal</strong>
-                <span>Add a target amount to generate a production recommendation.</span>
-              </>
-            ) : calc.annualGoal <= calc.totals.income ? (
-              <>
-                <strong>Your plan reaches the income goal</strong>
-                <span>Projected earnings are {money(calc.totals.income - calc.annualGoal)} above the target.</span>
-              </>
-            ) : calc.extra <= 500 ? (
-              <>
-                <strong>Add approximately {calc.extra} case{calc.extra === 1 ? '' : 's'} per month</strong>
-                <span>
-                  Using each month&apos;s case size and payment mode, this adds about {calc.extra * 12} cases and
-                  projects {money(calc.recommended)} in total earnings.
-                </span>
-              </>
-            ) : (
-              <>
-                <strong>Income goal needs a customized production mix</strong>
-                <span>Adjust monthly case sizes, payment modes, or Business Partner production to build a practical path to the target.</span>
-              </>
-            )}
-          </div>
-        </div>
       </div>
 
-      <div className="summary is-summary">
+      <div className="is-summary">
         <article className="metric-card">
-          <div className="metric-label">Annual Cases</div>
+          <div className="metric-label">TOTAL CASES</div>
           <div className="is-metric-value">{calc.totals.cases}</div>
         </article>
         <article className="metric-card">
-          <div className="metric-label">Annual APE</div>
+          <div className="metric-label">TOTAL APE</div>
           <div className="is-metric-value">{money(calc.totals.ape)}</div>
         </article>
         <article className="metric-card">
-          <div className="metric-label">FYC Received Within Year</div>
+          <div className="metric-label">TOTAL FYC</div>
           <div className="is-metric-value">{money(calc.fycWithinYear)}</div>
         </article>
         <article className="metric-card">
@@ -469,7 +443,7 @@ const IncomeSimulationPage = () => {
       </div>
 
       {calc.senior && (
-        <div className="summary is-summary is-team-summary">
+        <div className="is-summary is-team-summary">
           <article className="metric-card">
             <div className="metric-label">Team APE</div>
             <div className="is-metric-value">{money(calc.teamApe)}</div>
