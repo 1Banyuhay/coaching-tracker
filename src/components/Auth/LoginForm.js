@@ -93,30 +93,6 @@ const LoginForm = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="login-footer">
-          {/* Temporary, for this testing phase only - remove once testing
-              is done. */}
-          <p className="demo-credentials-label">Demo Credentials (testing only)</p>
-          <div className="demo-credentials-list">
-            <div className="demo-credentials-row">
-              <span className="demo-role">Admin</span>
-              <span>admin / DemoAdmin1!</span>
-            </div>
-            <div className="demo-credentials-row">
-              <span className="demo-role">Senior Manager</span>
-              <span>demo.seniormanager / DemoSeniorMgr1!</span>
-            </div>
-            <div className="demo-credentials-row">
-              <span className="demo-role">Manager</span>
-              <span>demo.manager / DemoManager1!</span>
-            </div>
-            <div className="demo-credentials-row">
-              <span className="demo-role">Planner</span>
-              <span>demo.planner / DemoPlanner1!</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
