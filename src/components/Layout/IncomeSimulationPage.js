@@ -54,11 +54,9 @@ const MVB_TABLE_ROWS = [
   ['200,000 and above', '30.0%', '40.0%'],
 ];
 
-// MAAB (Monthly Aggregate Agency Bonus) - a Financial Wealth Manager's
-// downline size determines a tier, and that tier's rate is applied to the
-// manager's monthly ORC. Rows are listed exactly as given so the reference
-// table on screen matches this lookup - the highest "Active Agents"
-// threshold the manager's active agent count meets or exceeds wins.
+// MONTHLY ACTIVE AGENTS BONUS (MAAB) reference tiers - shown as a lookup
+// table for a Financial Wealth Manager's downline size, listed exactly as
+// given.
 const MAAB_TIERS = [
   { tier: 'Base', rate: 0.10, minAgents: 3 },
   { tier: 'Base', rate: 0.10, minAgents: 4 },
@@ -70,14 +68,6 @@ const MAAB_TIERS = [
   { tier: 'Premier', rate: 0.45, minAgents: 13 },
   { tier: 'Premier', rate: 0.50, minAgents: 15 },
 ];
-
-function maabTierFor(activeAgents) {
-  let applicable = null;
-  MAAB_TIERS.forEach((row) => {
-    if (activeAgents >= row.minAgents) applicable = row;
-  });
-  return applicable;
-}
 
 const money = (n) => '₱' + Math.round(n || 0).toLocaleString('en-PH');
 const plain = (n) => Math.round(n || 0).toLocaleString('en-PH');
@@ -237,6 +227,10 @@ const IncomeSimulationPage = () => {
     const rate = commission / 100;
     const p = Number(persistency) || 0;
     const fycSchedule = Array(12).fill(0);
+    const orcSchedule = Array(12).fill(0);
+
+    const isFwm = role === 'fwm';
+    const hasPartners = role === 'senior' || isFwm;
 
     const personal = months.map((m) => {
       const cases = parseIntSafe(m.cases);
@@ -245,22 +239,35 @@ const IncomeSimulationPage = () => {
       return { cases, size, mode: m.mode, ape, mcbCase: mcbCases(cases, size, ape) };
     });
 
-    const totals = { cases: 0, mcbCase: 0, ape: 0, initialFyc: 0, fullFyc: 0, mvb: 0, mcb: 0, maab: 0, income: 0 };
+    const totals = {
+      cases: 0, mcbCase: 0, ape: 0, initialFyc: 0, fullFyc: 0,
+      initialPersonalOrc: 0, personalOrc: 0, mvb: 0, mcb: 0, income: 0,
+    };
 
+    // A Financial Wealth Manager also earns an override on their OWN
+    // production (a flat 25%, on top of the commission itself) - this
+    // gets scheduled into the same orcSchedule as Business Partner
+    // overrides, so it flows into Total Earnings and "ORC Received
+    // Within Year" the same way.
     const withFyc = personal.map((x, i) => {
       const fullFyc = x.ape * rate;
       const initialFyc = addSchedule(fycSchedule, i, fullFyc, x.mode);
+      let personalOrc = 0;
+      let initialPersonalOrc = 0;
+      if (isFwm) {
+        personalOrc = fullFyc * 0.25;
+        initialPersonalOrc = addSchedule(orcSchedule, i, personalOrc, x.mode);
+      }
       totals.cases += x.cases;
       totals.mcbCase += x.mcbCase;
       totals.ape += x.ape;
       totals.initialFyc += initialFyc;
       totals.fullFyc += fullFyc;
-      return { ...x, fullFyc, initialFyc };
+      totals.initialPersonalOrc += initialPersonalOrc;
+      totals.personalOrc += personalOrc;
+      return { ...x, fullFyc, initialFyc, personalOrc, initialPersonalOrc };
     });
 
-    const isFwm = role === 'fwm';
-    const hasPartners = role === 'senior' || isFwm;
-    const orcSchedule = Array(12).fill(0);
     let teamApe = 0;
     let teamFullFyc = 0;
 
@@ -296,34 +303,19 @@ const IncomeSimulationPage = () => {
       });
     }
 
-    // MAAB (Financial Wealth Manager only): each month's active-agent
-    // count (Business Partners producing that month) sets a tier, and
-    // that tier's rate applies to that same month's ORC.
-    const activeAgents = Array(12).fill(0);
-    const maabSchedule = Array(12).fill(0);
-    let maabRows = [];
-    if (isFwm) {
-      partnersComputed.forEach((list, monthIndex) => {
-        activeAgents[monthIndex] = list.filter((bp) => bp.cases > 0).length;
-      });
-      maabRows = activeAgents.map((agents, i) => {
-        const tierMatch = maabTierFor(agents);
-        const amount = tierMatch ? tierMatch.rate * orcSchedule[i] : 0;
-        maabSchedule[i] = amount;
-        return { agents, tier: tierMatch ? tierMatch.tier : '—', rate: tierMatch ? tierMatch.rate : 0, amount };
-      });
-    }
+    // A Financial Wealth Manager's own personal production counts toward
+    // Team APE too, alongside their Business Partners'.
+    if (isFwm) teamApe += totals.ape;
 
     const monthlyIncome = [];
     const rows = withFyc.map((x, i) => {
       const mvbRate = volumeRate(x.ape, p);
       const mvb = fycSchedule[i] * mvbRate;
       const mcb = caseBonus(x.mcbCase);
-      const income = fycSchedule[i] + mvb + mcb + orcSchedule[i] + maabSchedule[i];
+      const income = fycSchedule[i] + mvb + mcb + orcSchedule[i];
       monthlyIncome.push(income);
       totals.mvb += mvb;
       totals.mcb += mcb;
-      totals.maab += maabSchedule[i];
       totals.income += income;
       return { ...x, mvbRate, mvb, mcb, income, accumulatedFyc: fycSchedule[i] };
     });
@@ -349,7 +341,7 @@ const IncomeSimulationPage = () => {
 
     return {
       rows, totals, fycWithinYear, overrideIncome, teamApe, teamFullFyc, hasPartners, isFwm,
-      partnersComputed, activeAgents, maabRows, monthlyIncome, goal, annualGoal, goalBasisIncome, pct, gap, aboveGoal, extra, recommended,
+      partnersComputed, monthlyIncome, goal, annualGoal, goalBasisIncome, pct, gap, aboveGoal, extra, recommended,
     };
   }, [months, partners, commission, persistency, role, incomeGoal, goalMode]);
 
@@ -369,7 +361,7 @@ const IncomeSimulationPage = () => {
         <div className="is-controls">
           {canEnterPlannerName && (
             <div className="is-field">
-              <label htmlFor="is-plannerName">Planner&apos;s Name</label>
+              <label htmlFor="is-plannerName">Name</label>
               <div className="is-input-wrap">
                 <input
                   id="is-plannerName"
@@ -447,11 +439,6 @@ const IncomeSimulationPage = () => {
             </div>
           </div>
         </div>
-        <p className="is-hint">
-          <strong>Use annualized premium for case size:</strong> a ₱2,000 monthly premium has a ₱24,000 APE. Initial FYC
-          is based on the selected payment mode. Previous scheduled installments are added to the current month&apos;s
-          FYC before MVB is computed.
-        </p>
       </div>
 
       <div className="card">
@@ -498,7 +485,7 @@ const IncomeSimulationPage = () => {
       </div>
 
       {calc.hasPartners && (
-        <div className={`is-summary is-team-summary ${calc.isFwm ? 'is-team-summary-4' : ''}`}>
+        <div className="is-summary is-team-summary">
           <article className="metric-card">
             <div className="metric-label">Team APE</div>
             <div className="is-metric-value">{money(calc.teamApe)}</div>
@@ -511,12 +498,6 @@ const IncomeSimulationPage = () => {
             <div className="metric-label">ORC Received Within Year</div>
             <div className="is-metric-value">{money(calc.overrideIncome)}</div>
           </article>
-          {calc.isFwm && (
-            <article className="metric-card metric-success is-total-card">
-              <div className="metric-label">MAAB Received Within Year</div>
-              <div className="is-metric-value">{money(calc.totals.maab)}</div>
-            </article>
-          )}
         </div>
       )}
 
@@ -539,6 +520,8 @@ const IncomeSimulationPage = () => {
                 <th>MCB Amount</th>
                 <th>MVB Rate</th>
                 <th>MVB Amount</th>
+                {calc.isFwm && <th>Initial Personal ORC</th>}
+                {calc.isFwm && <th>Full Year Personal ORC</th>}
                 <th>Total Earnings</th>
               </tr>
             </thead>
@@ -588,11 +571,13 @@ const IncomeSimulationPage = () => {
                       <td className="is-bonus">{money(row.mcb)}</td>
                       <td>{row.mvbRate ? `${(row.mvbRate * 100).toFixed(1)}%` : '—'}</td>
                       <td className="is-bonus">{money(row.mvb)}</td>
+                      {calc.isFwm && <td className="is-bonus">{money(row.initialPersonalOrc)}</td>}
+                      {calc.isFwm && <td className="is-bonus">{money(row.personalOrc)}</td>}
                       <td className="is-income">{money(row.income)}</td>
                     </tr>
                     {calc.hasPartners && (
                       <tr className="is-partner-zone">
-                        <td colSpan={12}>
+                        <td colSpan={calc.isFwm ? 14 : 12}>
                           <div className="is-partner-tools">
                             <button type="button" className="action-btn" onClick={() => addPartner(i)}>
                               <Plus size={14} style={{ marginRight: '0.25rem' }} /> Add Business Partner
@@ -709,58 +694,14 @@ const IncomeSimulationPage = () => {
                 <td>{money(calc.totals.mcb)}</td>
                 <td>—</td>
                 <td>{money(calc.totals.mvb)}</td>
+                {calc.isFwm && <td>{money(calc.totals.initialPersonalOrc)}</td>}
+                {calc.isFwm && <td>{money(calc.totals.personalOrc)}</td>}
                 <td>{money(calc.totals.income)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
-
-      {calc.isFwm && (
-        <div className="card">
-          <h2 className="section-title">MAAB Computation</h2>
-          <p className="is-hint" style={{ marginBottom: '1rem' }}>
-            Based on each month&apos;s number of active Business Partners (Direct or Indirect), applied as a
-            percentage of that month&apos;s ORC.
-          </p>
-          <div className="is-table-wrap">
-            <table className="data-table is-maab-table">
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Active Agents</th>
-                  <th>Tier</th>
-                  <th>Bonus Rate</th>
-                  <th>MAAB Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MONTHS.map((label, i) => {
-                  const m = calc.maabRows[i];
-                  return (
-                    <tr key={label}>
-                      <td className="is-month">{label}</td>
-                      <td>{m.agents}</td>
-                      <td>{m.tier}</td>
-                      <td>{m.rate ? `${(m.rate * 100).toFixed(0)}%` : '—'}</td>
-                      <td className="is-bonus">{money(m.amount)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Annual Total</td>
-                  <td>—</td>
-                  <td>—</td>
-                  <td>—</td>
-                  <td>{money(calc.totals.maab)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
 
       <div className="card">
         <h2 className="section-title">Bonus Reference Tables</h2>
@@ -773,7 +714,7 @@ const IncomeSimulationPage = () => {
               for the month are aggregated; the sum is divided by ₱24,000 to determine the number of cases.
             </p>
             <div className="is-table-wrap">
-              <table className="data-table is-mcb-table">
+              <table className="data-table is-ref-table is-mcb-table">
                 <thead>
                   <tr>
                     <th>Monthly Case Count</th>
@@ -799,7 +740,7 @@ const IncomeSimulationPage = () => {
               Meet the minimum levels in monthly APE (net of cancellations) to earn a percentage of the monthly FYC.
             </p>
             <div className="is-table-wrap">
-              <table className="data-table is-mvb-table">
+              <table className="data-table is-ref-table is-mvb-table">
                 <thead>
                   <tr>
                     <th>{MVB_TABLE_HEADERS[0]}</th>
@@ -819,45 +760,34 @@ const IncomeSimulationPage = () => {
               </table>
             </div>
           </div>
-        </div>
 
-        <div className="is-bonus-table-block is-maab-reference">
-          <h3>MAAB (Monthly Aggregate Agency Bonus) - Financial Wealth Manager</h3>
-          <p className="is-bonus-note">
-            Rate applied to the manager&apos;s monthly ORC, based on the number of active agents (Business Partners
-            producing that month) in their downline.
-          </p>
-          <div className="is-table-wrap">
-            <table className="data-table is-maab-ref-table">
-              <thead>
-                <tr>
-                  <th>Tier</th>
-                  <th>Bonus Rate</th>
-                  <th>Active Agents</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MAAB_TIERS.map((row) => (
-                  <tr key={`${row.tier}-${row.minAgents}`}>
-                    <td>{row.tier}</td>
-                    <td>{(row.rate * 100).toFixed(0)}%</td>
-                    <td>{row.minAgents}</td>
+          <div className="is-bonus-table-block">
+            <h3>MONTHLY ACTIVE AGENTS BONUS (MAAB)</h3>
+            <p className="is-bonus-note">
+              Rate applied to a Financial Wealth Manager&apos;s monthly ORC, based on their number of active agents.
+            </p>
+            <div className="is-table-wrap">
+              <table className="data-table is-ref-table is-maab-ref-table">
+                <thead>
+                  <tr>
+                    <th>Tier</th>
+                    <th>Bonus Rate</th>
+                    <th>Active Agents</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {MAAB_TIERS.map((row) => (
+                    <tr key={`${row.tier}-${row.minAgents}`}>
+                      <td>{row.tier}</td>
+                      <td>{(row.rate * 100).toFixed(0)}%</td>
+                      <td>{row.minAgents}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-
-        <p className="is-note">
-          For coaching and illustration only. Full Year FYC uses APE × commission rate. Initial FYC applies the
-          selected payment-mode fraction. Current-month FYC includes scheduled installments from previous months and
-          is used as the MVB base. MCB Case is automatic using the ₱24,000 APE qualification rule. Senior Planner ORC
-          is a flat 10% of a Business Partner&apos;s FYC. A Financial Wealth Manager&apos;s ORC instead depends on
-          each partner&apos;s Structure tag: 25% if Direct, 15% if Indirect. MAAB is a percentage of the manager&apos;s
-          own monthly ORC, set by that month&apos;s active-agent tier. All of the above exclude other bonuses. Actual
-          release timing may vary by product and current company compensation rules.
-        </p>
       </div>
     </div>
   );
