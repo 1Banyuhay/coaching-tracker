@@ -29,7 +29,7 @@
 
 .is-field .is-input-wrap { width: 210px; }
 
-.is-field .is-input-wrap.is-narrow { width: 90px; max-width: 90px; }
+.is-field .is-input-wrap.is-narrow { width: 120px; max-width: 120px; }
 
 .is-field .is-goal-group { width: 240px; }
 
@@ -82,7 +82,7 @@
 .is-suffix { padding: 0.625rem 0.75rem 0.625rem 0.25rem; }
 
 .is-input-wrap.is-narrow {
-  max-width: 90px;
+  max-width: 120px;
 }
 
 .is-input-wrap.is-narrow input {

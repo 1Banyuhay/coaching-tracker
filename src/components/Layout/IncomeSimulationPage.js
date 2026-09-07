@@ -154,7 +154,7 @@ function projectedPersonal(personal, rate, persistency, extraCases, overrideInco
   return total + overrideIncome;
 }
 
-const defaultMonths = () => MONTHS.map(() => ({ cases: 1, size: 36000, mode: 'monthly' }));
+const defaultMonths = () => MONTHS.map(() => ({ cases: 0, size: 36000, mode: 'monthly' }));
 const defaultPartners = () => MONTHS.map(() => []);
 
 const loadSaved = () => {
