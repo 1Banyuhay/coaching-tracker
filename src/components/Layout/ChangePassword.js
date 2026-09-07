@@ -78,7 +78,7 @@ const ChangePassword = ({ forced = false, onDone }) => {
               aria-label={visible.current ? 'Hide password' : 'Show password'}
               tabIndex={-1}
             >
-              {visible.current ? <EyeOff size={18} /> : <Eye size={18} />}
+              {visible.current ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
@@ -97,7 +97,7 @@ const ChangePassword = ({ forced = false, onDone }) => {
               aria-label={visible.next ? 'Hide password' : 'Show password'}
               tabIndex={-1}
             >
-              {visible.next ? <EyeOff size={18} /> : <Eye size={18} />}
+              {visible.next ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
@@ -116,7 +116,7 @@ const ChangePassword = ({ forced = false, onDone }) => {
               aria-label={visible.confirm ? 'Hide password' : 'Show password'}
               tabIndex={-1}
             >
-              {visible.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+              {visible.confirm ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
