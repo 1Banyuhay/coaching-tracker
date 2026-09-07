@@ -73,7 +73,7 @@ const MyPlanners = () => {
       </div>
 
       <div className="card">
-        <h2 className="section-title">YOUR PLANNERS</h2>
+        <h2 className="section-title">LIST OF PLANNERS</h2>
 
         {planners.length === 0 ? (
           <div className="no-data">No planners reporting to you yet</div>
