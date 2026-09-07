@@ -1,0 +1,357 @@
+/* Income Simulation - scoped with an "is-" prefix so nothing here can
+   collide with another page's classes once bundled (Create React App
+   concatenates every imported stylesheet into one global file). */
+
+.is-reset-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: background 0.15s ease;
+}
+
+.is-reset-btn:hover { background: rgba(255, 255, 255, 0.28); }
+
+.is-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.is-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b4423;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+}
+
+.is-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d4ccc4;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.is-input-wrap:focus-within {
+  border-color: #d4762b;
+  box-shadow: 0 0 0 2px rgba(212, 118, 43, 0.12);
+}
+
+.is-input-wrap input,
+.is-input-wrap select {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  padding: 0.625rem 0.75rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c2c2c;
+  background: transparent;
+}
+
+.is-prefix,
+.is-suffix {
+  padding: 0.625rem 0 0.625rem 0.75rem;
+  color: #999;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.is-suffix { padding: 0.625rem 0.75rem 0.625rem 0.25rem; }
+
+.is-goal-group {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.is-goal-mode {
+  border: 1px solid #d4ccc4;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b4423;
+  cursor: pointer;
+}
+
+.is-goal-mode:focus { outline: none; border-color: #d4762b; }
+
+.is-hint {
+  margin: 0.75rem 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8a8078;
+}
+
+.is-hint strong { color: #6b4423; }
+
+/* Goal progress + recommendation ---------------------------------- */
+
+.is-goal-strip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.is-goal-copy strong {
+  display: block;
+  font-size: 15px;
+  color: #2c2c2c;
+}
+
+.is-goal-copy span {
+  display: block;
+  font-size: 12px;
+  color: #999;
+  margin-top: 0.2rem;
+}
+
+.is-progress {
+  height: 10px;
+  background: #f0ebe5;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.is-progress > span {
+  display: block;
+  height: 100%;
+  background: #d4762b;
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+.is-goal-result { text-align: right; }
+.is-goal-result strong { display: block; font-size: 18px; color: #8b3a3a; }
+.is-goal-result span { display: block; font-size: 12px; color: #999; margin-top: 0.15rem; }
+
+.is-recommendation {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #f9f7f4;
+  border: 1px solid #e0d8d0;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.is-rec-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #d4762b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.is-recommendation strong { display: block; font-size: 14px; color: #2c2c2c; }
+.is-recommendation span { display: block; font-size: 12.5px; color: #666; margin-top: 0.2rem; line-height: 1.4; }
+
+/* Summary cards ------------------------------------------------------ */
+
+.is-summary { margin-bottom: 2rem; }
+.is-team-summary { grid-template-columns: repeat(3, 1fr); }
+
+.is-metric-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #8b3a3a;
+}
+
+.is-total-card .is-metric-value { color: #2d5016; }
+
+/* Monthly production table ------------------------------------------ */
+
+.is-table-wrap { overflow-x: auto; }
+
+.is-plan-table { min-width: 1180px; }
+
+.is-plan-table th,
+.is-plan-table td { white-space: nowrap; }
+
+.is-plan-table tfoot td {
+  background: #2c2c2c;
+  color: #fff;
+  font-weight: 700;
+  border: 0;
+}
+
+.is-month { font-weight: 700; color: #2c2c2c; }
+
+.is-cell-input,
+.is-cell-select {
+  width: 88px;
+  border: 1px solid #d4ccc4;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #2c2c2c;
+  background: #fff;
+}
+
+.is-cell-select { width: 108px; }
+
+.is-cell-money .is-money-field { width: 100px; }
+.is-cell-money.is-input-wrap { display: inline-flex; }
+
+.is-bonus { color: #2d5016; font-weight: 700; }
+.is-income { color: #8b3a3a; font-weight: 800; }
+
+/* Business Partner rows (Senior Planner only) ------------------------ */
+
+.is-partner-zone > td {
+  background: #fffaf5;
+  padding: 0.75rem 0.9rem 1rem;
+  white-space: normal;
+}
+
+.is-partner-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.is-partner-count { font-size: 12px; color: #999; }
+
+.is-partner-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.is-partner-card {
+  border: 1px solid #efd8c8;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.is-partner-grid {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(8, minmax(95px, 1fr)) auto;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.is-partner-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+
+.is-partner-field input,
+.is-partner-field select {
+  width: 100%;
+  border: 1px solid #d4ccc4;
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.is-partner-output {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #2c2c2c;
+  padding: 0.45rem 0.1rem;
+  white-space: nowrap;
+}
+
+.is-partner-remove {
+  border: 0;
+  background: transparent;
+  color: #c32626;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.is-partner-remove:hover { color: #a01f1f; }
+
+/* Bonus reference tables ---------------------------------------------- */
+
+.is-bonus-tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.is-bonus-table-block h3 {
+  margin: 0 0 0.5rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b4423;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.is-bonus-note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8a8078;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.is-mcb-table th:first-child,
+.is-mcb-table td:first-child,
+.is-mvb-table th:first-child,
+.is-mvb-table td:first-child { text-align: left; }
+
+.is-mcb-table th:last-child,
+.is-mcb-table td:last-child,
+.is-mvb-table th:not(:first-child),
+.is-mvb-table td:not(:first-child) { text-align: right; }
+
+.is-note {
+  font-size: 11.5px;
+  color: #999;
+  line-height: 1.6;
+  margin-top: 1.5rem;
+}
+
+.is-copyright {
+  text-align: center;
+  font-size: 11.5px;
+  color: #999;
+  margin: 0 0 0.5rem;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .is-goal-strip { grid-template-columns: 1fr; }
+  .is-goal-result { text-align: left; }
+  .is-bonus-tables { grid-template-columns: 1fr; }
+  .is-team-summary { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .is-controls { grid-template-columns: 1fr; }
+  .is-goal-group { grid-template-columns: 1fr; }
+}

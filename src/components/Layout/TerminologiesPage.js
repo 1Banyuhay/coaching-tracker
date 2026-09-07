@@ -17,6 +17,12 @@ const ROLE_LABELS = { planner: 'Planner', manager: 'Manager', senior_manager: 'S
 const ALL_ROLES = ROLE_OPTIONS.map((r) => r.value);
 const UNCATEGORIZED = 'Uncategorized';
 
+// Categories are stored with a leading letter, e.g. "A. Life Insurance
+// Fundamentals" - that keeps them sorted in the right order and keeps the
+// admin's category picker unambiguous, but on screen we only want the
+// name itself, so this strips the "A. " part just for display.
+const displayCategory = (category) => category.replace(/^[A-Za-z]\.\s*/, '');
+
 const visibilityLabel = (roles) => {
   if (!roles || roles.length === 0) return 'Hidden from everyone (draft)';
   if (roles.length === ALL_ROLES.length) return 'Visible to everyone';
@@ -206,7 +212,7 @@ const TerminologiesPage = () => {
                   <button type="button" className="category-question" onClick={() => toggleCategory(category)}>
                     <span className="category-question-label">
                       <ChevronRight size={16} className={`category-chevron ${isCategoryOpen ? 'open' : ''}`} />
-                      {category}
+                      {displayCategory(category)}
                     </span>
                     <span className="category-count">{categoryTerms.length}</span>
                   </button>

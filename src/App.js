@@ -21,6 +21,7 @@ import UsefulLinksPage from './components/Layout/UsefulLinksPage';
 import NotesPage from './components/Layout/NotesPage';
 import TerminologiesPage from './components/Layout/TerminologiesPage';
 import SalesCyclePage from './components/Layout/SalesCyclePage';
+import IncomeSimulationPage from './components/Layout/IncomeSimulationPage';
 
 // Planner Pages
 import PlannerDashboard from './components/Planner/PlannerDashboard';
@@ -142,9 +143,9 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              {/* Sales Cycle - training content, open to Planner, Manager and
-                  Senior Manager (same audience as Terminologies / Useful
-                  Links). Income Simulation is still a placeholder. */}
+              {/* Sales Cycle and Income Simulation - training/coaching tools,
+                  open to Planner, Manager and Senior Manager (same audience
+                  as Terminologies / Useful Links). */}
               <Route
                 path="/sales-cycle"
                 element={
@@ -157,7 +158,7 @@ function App() {
                 path="/income-simulation"
                 element={
                   <ProtectedRoute>
-                    <Placeholder title="Income Simulation" message="Content to follow." />
+                    <IncomeSimulationPage />
                   </ProtectedRoute>
                 }
               />
