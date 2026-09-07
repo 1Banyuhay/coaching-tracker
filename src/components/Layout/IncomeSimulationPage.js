@@ -83,11 +83,6 @@ function maabTierFor(count) {
   return match;
 }
 
-// The next tier up from the current active-agent count (or null if
-// already at the top tier).
-function maabNextTier(count) {
-  return MAAB_TIERS.find((t) => t.minAgents > count) || null;
-}
 
 const money = (n) => '₱' + Math.round(n || 0).toLocaleString('en-PH');
 const plain = (n) => Math.round(n || 0).toLocaleString('en-PH');
@@ -117,15 +112,25 @@ function mcbCases(cases, size, ape) {
   return size >= 24000 ? cases : Math.floor(ape / 24000);
 }
 
-// Spreads a full-year FYC amount across the months a given payment mode
-// pays out in, starting at month `start`. Returns the first installment
-// (the "initial FYC" for that case) so callers can total that too.
-function addSchedule(target, start, full, mode) {
+// Spreads a full-year amount (FYC or ORC) across the months a given
+// payment mode pays out in, starting at month `start`. Returns the first
+// installment so callers can total that too. When `contrib`/`label` are
+// given (used for ORC only), each month's installment is also recorded
+// there so a month's total can later be explained/traced back to the
+// production that produced it - this is what makes a later month's ORC
+// higher than an earlier one for the same production: prior months'
+// installments are still paying out alongside the current month's own.
+function addSchedule(target, start, full, mode, contrib, label) {
   const offsets = PAYMENT_MODES[mode].offsets;
   const part = offsets.length ? full / offsets.length : 0;
   offsets.forEach((offset) => {
     const month = start + offset;
-    if (month < 12) target[month] += part;
+    if (month < 12) {
+      target[month] += part;
+      if (contrib && part) {
+        contrib[month].push({ label, sourceMonth: MONTHS[start], amount: part });
+      }
+    }
   });
   return part;
 }
@@ -149,7 +154,7 @@ function projectedPersonal(personal, rate, persistency, extraCases, overrideInco
   return total + overrideIncome;
 }
 
-const defaultMonths = () => MONTHS.map(() => ({ cases: 0, size: 24000, mode: 'monthly' }));
+const defaultMonths = () => MONTHS.map(() => ({ cases: 1, size: 36000, mode: 'monthly' }));
 const defaultPartners = () => MONTHS.map(() => []);
 
 const loadSaved = () => {
@@ -182,12 +187,13 @@ const IncomeSimulationPage = () => {
 
   const [plannerName, setPlannerName] = useState(saved?.plannerName || '');
   const [role, setRole] = useState(saved?.role || 'planner');
-  const [commission, setCommission] = useState(saved?.commission ?? 40);
-  const [persistency, setPersistency] = useState(saved?.persistency ?? 85);
+  const [commission, setCommission] = useState(saved?.commission ?? 50);
+  const [persistency, setPersistency] = useState(saved?.persistency ?? 100);
   const [incomeGoal, setIncomeGoal] = useState(saved?.incomeGoal ?? 1000000);
   const [goalMode, setGoalMode] = useState(saved?.goalMode || 'annual');
   const [months, setMonths] = useState(saved?.months?.length === 12 ? saved.months : defaultMonths);
   const [partners, setPartners] = useState(saved?.partners?.length === 12 ? saved.partners : defaultPartners);
+  const [openOrcMonth, setOpenOrcMonth] = useState(null);
 
   useEffect(() => {
     try {
@@ -235,12 +241,13 @@ const IncomeSimulationPage = () => {
     }
     setPlannerName('');
     setRole('planner');
-    setCommission(40);
-    setPersistency(85);
+    setCommission(50);
+    setPersistency(100);
     setIncomeGoal(1000000);
     setGoalMode('annual');
     setMonths(defaultMonths());
     setPartners(defaultPartners());
+    setOpenOrcMonth(null);
   };
 
   const calc = useMemo(() => {
@@ -248,6 +255,7 @@ const IncomeSimulationPage = () => {
     const p = Number(persistency) || 0;
     const fycSchedule = Array(12).fill(0);
     const orcSchedule = Array(12).fill(0);
+    const orcContrib = Array.from({ length: 12 }, () => []);
 
     const isFwm = role === 'fwm';
     const hasPartners = role === 'senior' || isFwm;
@@ -276,7 +284,7 @@ const IncomeSimulationPage = () => {
       let initialPersonalOrc = 0;
       if (isFwm) {
         personalOrc = fullFyc * 0.25;
-        initialPersonalOrc = addSchedule(orcSchedule, i, personalOrc, x.mode);
+        initialPersonalOrc = addSchedule(orcSchedule, i, personalOrc, x.mode, orcContrib, 'Self');
       }
       totals.cases += x.cases;
       totals.mcbCase += x.mcbCase;
@@ -321,7 +329,7 @@ const IncomeSimulationPage = () => {
           teamApe += bp.ape;
           teamFullFyc += bp.fullFyc;
           teamCases += bp.cases;
-          addSchedule(orcSchedule, monthIndex, bp.fullOrc, bp.mode);
+          addSchedule(orcSchedule, monthIndex, bp.fullOrc, bp.mode, orcContrib, bp.name || 'Business Partner');
         });
       });
     }
@@ -363,24 +371,12 @@ const IncomeSimulationPage = () => {
       return {
         ...x, mvbRate, mvb, mcb, income, accumulatedFyc: fycSchedule[i],
         activeAgentCount, maabTier, maabRate, maab,
+        orc: orcSchedule[i], orcContributions: orcContrib[i],
       };
     });
 
     const fycWithinYear = fycSchedule.reduce((a, b) => a + b, 0);
     const overrideIncome = orcSchedule.reduce((a, b) => a + b, 0);
-
-    // A single "current status" snapshot for the MAAB Status card, using
-    // December (the last month of the plan) as the year-end read on
-    // active-agent count/tier - MAAB itself is already fully computed
-    // and folded in per month above.
-    const maabStatus = isFwm ? {
-      count: rows[11].activeAgentCount,
-      tier: rows[11].maabTier,
-      rate: rows[11].maabRate,
-      amount: rows[11].maab,
-      orc: orcSchedule[11],
-      next: maabNextTier(rows[11].activeAgentCount),
-    } : null;
 
     const goal = Number(incomeGoal) || 0;
     const annualGoal = goalMode === 'monthly' ? goal * 12 : goalMode === 'quarterly' ? goal * 4 : goal;
@@ -400,7 +396,6 @@ const IncomeSimulationPage = () => {
 
     return {
       rows, totals, fycWithinYear, overrideIncome, teamApe, teamFullFyc, teamCases, hasPartners, isFwm,
-      maabStatus,
       partnersComputed, monthlyIncome, goal, annualGoal, goalBasisIncome, pct, gap, aboveGoal, extra, recommended,
     };
   }, [months, partners, commission, persistency, role, incomeGoal, goalMode]);
@@ -589,6 +584,7 @@ const IncomeSimulationPage = () => {
                 <th>MVB Amount</th>
                 {calc.isFwm && <th>Initial Personal ORC</th>}
                 {calc.isFwm && <th>Full Year Personal ORC</th>}
+                {calc.hasPartners && <th>ORC Received This Month</th>}
                 {calc.isFwm && <th>Active Agents</th>}
                 {calc.isFwm && <th>MAAB Rate</th>}
                 {calc.isFwm && <th>MAAB Amount</th>}
@@ -601,7 +597,7 @@ const IncomeSimulationPage = () => {
                 const partnerList = calc.partnersComputed[i] || [];
                 return (
                   <React.Fragment key={label}>
-                    <tr>
+                    <tr className={i % 2 === 1 ? 'is-month-row is-month-row-alt' : 'is-month-row'}>
                       <td className="is-month">{label}</td>
                       <td>
                         <input
@@ -643,14 +639,62 @@ const IncomeSimulationPage = () => {
                       <td className="is-bonus">{money(row.mvb)}</td>
                       {calc.isFwm && <td className="is-bonus">{money(row.initialPersonalOrc)}</td>}
                       {calc.isFwm && <td className="is-bonus">{money(row.personalOrc)}</td>}
+                      {calc.hasPartners && (
+                        <td className="is-bonus">
+                          <button
+                            type="button"
+                            className="is-orc-link"
+                            onClick={() => setOpenOrcMonth(openOrcMonth === i ? null : i)}
+                          >
+                            {money(row.orc)}
+                          </button>
+                        </td>
+                      )}
                       {calc.isFwm && <td>{row.activeAgentCount}</td>}
                       {calc.isFwm && <td>{row.maabTier ? `${(row.maabRate * 100).toFixed(0)}%` : '—'}</td>}
-                      {calc.isFwm && <td className="is-bonus">{money(row.maab)}</td>}
+                      {calc.isFwm && (
+                        <td className="is-bonus">
+                          <button
+                            type="button"
+                            className="is-orc-link"
+                            onClick={() => setOpenOrcMonth(openOrcMonth === i ? null : i)}
+                          >
+                            {money(row.maab)}
+                          </button>
+                        </td>
+                      )}
                       <td className="is-income">{money(row.income)}</td>
                     </tr>
+                    {calc.hasPartners && openOrcMonth === i && (
+                      <tr className="is-orc-breakdown">
+                        <td colSpan={calc.isFwm ? 18 : 13}>
+                          <div className="is-orc-breakdown-box">
+                            <strong>Where {label}&apos;s ORC comes from</strong>
+                            {row.orcContributions.length > 0 ? (
+                              <ul>
+                                {row.orcContributions.map((c, ci) => (
+                                  <li key={ci}>
+                                    {c.label} — {c.sourceMonth} production: {money(c.amount)}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>No production has scheduled an ORC payout into {label} yet.</p>
+                            )}
+                            <p className="is-orc-total">Total ORC received in {label}: <strong>{money(row.orc)}</strong></p>
+                            {calc.isFwm && (
+                              <p className="is-orc-total">
+                                MAAB: {row.activeAgentCount} active agent{row.activeAgentCount === 1 ? '' : 's'}
+                                {row.maabTier ? ` = ${(row.maabRate * 100).toFixed(0)}% × ${money(row.orc)} = ${money(row.maab)}` : ' — not yet qualified this month'}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {calc.hasPartners && (
                       <tr className="is-partner-zone">
-                        <td colSpan={calc.isFwm ? 17 : 12}>
+                        <td colSpan={calc.isFwm ? 18 : 13}>
                           <div className="is-partner-tools">
                             <button type="button" className="action-btn" onClick={() => addPartner(i)}>
                               <Plus size={14} style={{ marginRight: '0.25rem' }} /> Add Business Partner
@@ -769,6 +813,7 @@ const IncomeSimulationPage = () => {
                 <td>{money(calc.totals.mvb)}</td>
                 {calc.isFwm && <td>{money(calc.totals.initialPersonalOrc)}</td>}
                 {calc.isFwm && <td>{money(calc.totals.personalOrc)}</td>}
+                {calc.hasPartners && <td>{money(calc.overrideIncome)}</td>}
                 {calc.isFwm && <td>—</td>}
                 {calc.isFwm && <td>—</td>}
                 {calc.isFwm && <td>{money(calc.totals.maab)}</td>}
@@ -778,46 +823,6 @@ const IncomeSimulationPage = () => {
           </table>
         </div>
       </div>
-
-      {calc.isFwm && calc.maabStatus && (
-        <div className="card is-maab-status">
-          <h2 className="section-title">MAAB Status</h2>
-          <p className="is-hint" style={{ marginBottom: '0.75rem' }}>
-            MAAB is evaluated fresh every month based on that month&apos;s active agents — see the Active Agents /
-            MAAB columns in the table above for each month&apos;s own count and amount. December (year-end) is
-            shown below.
-          </p>
-          <div className="is-maab-readout">
-            <span className="is-maab-count">
-              December: {calc.maabStatus.count} active agent{calc.maabStatus.count === 1 ? '' : 's'} = {(calc.maabStatus.rate * 100).toFixed(0)}%
-            </span>
-            <span className="is-maab-amount">{money(calc.maabStatus.amount)}</span>
-          </div>
-          {calc.maabStatus.tier ? (
-            <p className="is-hint">
-              December sits in the <strong>{calc.maabStatus.tier.tier}</strong> tier with {calc.maabStatus.count}{' '}
-              active agent{calc.maabStatus.count === 1 ? '' : 's'} (including self).
-            </p>
-          ) : (
-            <p className="is-hint">
-              Not yet qualified for MAAB in December. {3 - calc.maabStatus.count} more active
-              agent{3 - calc.maabStatus.count === 1 ? '' : 's'} (at least ₱10,000 APE that month) would reach the
-              Base tier (10%) — potential MAAB that month: <strong>{money(calc.maabStatus.orc * 0.10)}</strong>.
-            </p>
-          )}
-          {calc.maabStatus.next && (
-            <p className="is-hint">
-              {calc.maabStatus.next.minAgents - calc.maabStatus.count} more active
-              agent{calc.maabStatus.next.minAgents - calc.maabStatus.count === 1 ? '' : 's'} in December would
-              reach the <strong>{calc.maabStatus.next.tier}</strong> tier ({(calc.maabStatus.next.rate * 100).toFixed(0)}%)
-              — potential MAAB that month: <strong>{money(calc.maabStatus.orc * calc.maabStatus.next.rate)}</strong>.
-            </p>
-          )}
-          <p className="is-hint" style={{ marginTop: '0.75rem' }}>
-            Total MAAB earned across the year: <strong>{money(calc.totals.maab)}</strong>
-          </p>
-        </div>
-      )}
 
       <div className="card">
         <h2 className="section-title">Bonus Reference Tables</h2>
@@ -877,33 +882,35 @@ const IncomeSimulationPage = () => {
             </div>
           </div>
 
-          <div className="is-bonus-table-block">
-            <h3>MONTHLY ACTIVE AGENTS BONUS (MAAB)</h3>
-            <p className="is-bonus-note">
-              Rate applied to a Financial Wealth Manager&apos;s monthly ORC, based on their number of active
-              agents including self. At least an APE of ₱10,000 is required to be considered activated.
-            </p>
-            <div className="is-table-wrap">
-              <table className="data-table is-ref-table is-maab-ref-table">
-                <thead>
-                  <tr>
-                    <th>Tier</th>
-                    <th>Bonus Rate</th>
-                    <th>Active Agents</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MAAB_TIERS.map((row) => (
-                    <tr key={`${row.tier}-${row.minAgents}`}>
-                      <td>{row.tier}</td>
-                      <td>{(row.rate * 100).toFixed(0)}%</td>
-                      <td>{row.minAgents}</td>
+          {canEnterPlannerName && (
+            <div className="is-bonus-table-block">
+              <h3>MONTHLY ACTIVE AGENTS BONUS (MAAB)</h3>
+              <p className="is-bonus-note">
+                Rate applied to a Financial Wealth Manager&apos;s monthly ORC, based on their number of active
+                agents including self. At least an APE of ₱10,000 is required to be considered activated.
+              </p>
+              <div className="is-table-wrap">
+                <table className="data-table is-ref-table is-maab-ref-table">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Bonus Rate</th>
+                      <th>Active Agents</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {MAAB_TIERS.map((row) => (
+                      <tr key={`${row.tier}-${row.minAgents}`}>
+                        <td>{row.tier}</td>
+                        <td>{(row.rate * 100).toFixed(0)}%</td>
+                        <td>{row.minAgents}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

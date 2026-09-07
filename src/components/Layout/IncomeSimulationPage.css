@@ -96,6 +96,8 @@
 }
 
 .is-goal-mode {
+  width: auto;
+  min-width: 110px;
   border: 1px solid #d4ccc4;
   border-radius: 6px;
   background: #fff;
@@ -220,6 +222,19 @@
 .is-plan-table th,
 .is-plan-table td { white-space: nowrap; }
 
+/* The header row (Month / Case Count / Avg. Case Size / APE / Payment
+   Mode / ...) stays visible while scrolling down past a long month
+   list, so it's always clear which column is which. 61px matches the
+   height of the sticky top navbar so the header docks just beneath it
+   instead of being covered by it. */
+.is-plan-table thead th {
+  position: sticky;
+  top: 61px;
+  z-index: 3;
+  background: #f9f7f4;
+  box-shadow: 0 1px 0 #e0d8d0;
+}
+
 .is-plan-table tfoot td {
   background: #2c2c2c;
   color: #fff;
@@ -228,6 +243,48 @@
 }
 
 .is-month { font-weight: 700; color: #2c2c2c; }
+
+/* Give each month row a bit more breathing room and a light zebra tint
+   so consecutive months are easy to tell apart at a glance. */
+.is-month-row td { padding-top: 1.1rem; padding-bottom: 1.1rem; }
+.is-month-row-alt td { background: #fbf9f6; }
+.is-month-row-alt td.is-income { background: #fbf3ea; }
+
+/* ORC "link" cells + breakdown panel ---------------------------------- */
+
+.is-orc-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: #2d5016;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.is-orc-link:hover { color: #1e3810; }
+
+.is-orc-breakdown > td {
+  background: #fffaf5;
+  padding: 0.9rem 1.1rem !important;
+  white-space: normal;
+}
+
+.is-orc-breakdown-box strong { display: block; margin-bottom: 0.5rem; color: #6b4423; }
+
+.is-orc-breakdown-box ul {
+  margin: 0 0 0.6rem;
+  padding-left: 1.1rem;
+  font-size: 12.5px;
+  color: #2c2c2c;
+  line-height: 1.6;
+}
+
+.is-orc-breakdown-box p { margin: 0.3rem 0; font-size: 12.5px; color: #666; }
+
+.is-orc-total { color: #2c2c2c !important; }
 
 .is-cell-input,
 .is-cell-select {
@@ -336,7 +393,7 @@
 
 .is-bonus-tables {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.25rem;
 }
 
