@@ -69,6 +69,26 @@ const MAAB_TIERS = [
   { tier: 'Premier', rate: 0.50, minAgents: 15 },
 ];
 
+// An agent (self or a Business Partner) counts as "active" for MAAB once
+// their total annual APE reaches this amount.
+const ACTIVE_APE_THRESHOLD = 10000;
+
+// Highest MAAB tier the active-agent count qualifies for (or null if the
+// count hasn't reached the first tier yet).
+function maabTierFor(count) {
+  let match = null;
+  MAAB_TIERS.forEach((t) => {
+    if (count >= t.minAgents) match = t;
+  });
+  return match;
+}
+
+// The next tier up from the current active-agent count (or null if
+// already at the top tier).
+function maabNextTier(count) {
+  return MAAB_TIERS.find((t) => t.minAgents > count) || null;
+}
+
 const money = (n) => '₱' + Math.round(n || 0).toLocaleString('en-PH');
 const plain = (n) => Math.round(n || 0).toLocaleString('en-PH');
 const parseMoney = (v) => Math.max(0, Number(String(v ?? '').replace(/,/g, '')) || 0);
@@ -293,11 +313,14 @@ const IncomeSimulationPage = () => {
       })
     );
 
+    let teamCases = 0;
+
     if (hasPartners) {
       partnersComputed.forEach((list, monthIndex) => {
         list.forEach((bp) => {
           teamApe += bp.ape;
           teamFullFyc += bp.fullFyc;
+          teamCases += bp.cases;
           addSchedule(orcSchedule, monthIndex, bp.fullOrc, bp.mode);
         });
       });
@@ -323,6 +346,35 @@ const IncomeSimulationPage = () => {
     const fycWithinYear = fycSchedule.reduce((a, b) => a + b, 0);
     const overrideIncome = orcSchedule.reduce((a, b) => a + b, 0);
 
+    // MAAB: an "active agent" is self or a Business Partner whose total
+    // annual APE reaches ACTIVE_APE_THRESHOLD. Each person is deduped by
+    // name (case/space-insensitive) and only counted once for the year,
+    // even if they appear in multiple months. The resulting count is
+    // looked up against MAAB_TIERS and the matching rate is applied to
+    // the full-year ORC total (self + team) to get an annual MAAB amount.
+    const partnerApeByKey = new Map();
+    if (isFwm) {
+      partnersComputed.forEach((list) => {
+        list.forEach((bp) => {
+          const key = (bp.name || '').trim().toLowerCase() || `id:${bp.id}`;
+          partnerApeByKey.set(key, (partnerApeByKey.get(key) || 0) + bp.ape);
+        });
+      });
+    }
+    let activeAgentCount = 0;
+    if (isFwm) {
+      partnerApeByKey.forEach((ape) => {
+        if (ape >= ACTIVE_APE_THRESHOLD) activeAgentCount += 1;
+      });
+      if (totals.ape >= ACTIVE_APE_THRESHOLD) activeAgentCount += 1; // self
+    }
+    const maabTier = isFwm ? maabTierFor(activeAgentCount) : null;
+    const maabRate = maabTier ? maabTier.rate : 0;
+    const maabNext = isFwm ? maabNextTier(activeAgentCount) : null;
+    const annualMaab = maabRate * overrideIncome;
+    totals.maab = annualMaab;
+    totals.income += annualMaab;
+
     const goal = Number(incomeGoal) || 0;
     const annualGoal = goalMode === 'monthly' ? goal * 12 : goalMode === 'quarterly' ? goal * 4 : goal;
     const goalBasisIncome = goalMode === 'monthly' ? totals.income / 12 : goalMode === 'quarterly' ? totals.income / 4 : totals.income;
@@ -340,7 +392,8 @@ const IncomeSimulationPage = () => {
     }
 
     return {
-      rows, totals, fycWithinYear, overrideIncome, teamApe, teamFullFyc, hasPartners, isFwm,
+      rows, totals, fycWithinYear, overrideIncome, teamApe, teamFullFyc, teamCases, hasPartners, isFwm,
+      activeAgentCount, maabTier, maabRate, maabNext, annualMaab,
       partnersComputed, monthlyIncome, goal, annualGoal, goalBasisIncome, pct, gap, aboveGoal, extra, recommended,
     };
   }, [months, partners, commission, persistency, role, incomeGoal, goalMode]);
@@ -461,31 +514,27 @@ const IncomeSimulationPage = () => {
         </div>
       </div>
 
-      <div className="is-summary">
+      <div className="is-summary is-summary-4">
         <article className="metric-card">
           <div className="metric-label">TOTAL CASES</div>
-          <div className="is-metric-value">{calc.totals.cases}</div>
+          <div className="is-metric-value">{calc.totals.cases + calc.teamCases}</div>
         </article>
         <article className="metric-card">
-          <div className="metric-label">TOTAL APE</div>
+          <div className="metric-label">PERSONAL APE</div>
           <div className="is-metric-value">{money(calc.totals.ape)}</div>
         </article>
         <article className="metric-card">
-          <div className="metric-label">TOTAL FYC</div>
+          <div className="metric-label">PERSONAL FYC</div>
           <div className="is-metric-value">{money(calc.fycWithinYear)}</div>
         </article>
         <article className="metric-card">
           <div className="metric-label">Total Bonuses</div>
-          <div className="is-metric-value">{money(calc.totals.mvb + calc.totals.mcb)}</div>
-        </article>
-        <article className="metric-card metric-success is-total-card">
-          <div className="metric-label">Total Projected Earnings</div>
-          <div className="is-metric-value">{money(calc.totals.income)}</div>
+          <div className="is-metric-value">{money(calc.totals.mvb + calc.totals.mcb + calc.annualMaab)}</div>
         </article>
       </div>
 
-      {calc.hasPartners && (
-        <div className="is-summary is-team-summary">
+      {calc.hasPartners ? (
+        <div className="is-summary is-summary-4">
           <article className="metric-card">
             <div className="metric-label">Team APE</div>
             <div className="is-metric-value">{money(calc.teamApe)}</div>
@@ -494,9 +543,20 @@ const IncomeSimulationPage = () => {
             <div className="metric-label">Team Full Year FYC</div>
             <div className="is-metric-value">{money(calc.teamFullFyc)}</div>
           </article>
-          <article className="metric-card metric-success is-total-card">
+          <article className="metric-card is-orange-card">
             <div className="metric-label">ORC Received Within Year</div>
             <div className="is-metric-value">{money(calc.overrideIncome)}</div>
+          </article>
+          <article className="metric-card metric-success is-total-card is-green-card">
+            <div className="metric-label">Total Projected Earnings</div>
+            <div className="is-metric-value">{money(calc.totals.income)}</div>
+          </article>
+        </div>
+      ) : (
+        <div className="is-summary is-summary-solo">
+          <article className="metric-card metric-success is-total-card is-green-card">
+            <div className="metric-label">Total Projected Earnings</div>
+            <div className="is-metric-value">{money(calc.totals.income)}</div>
           </article>
         </div>
       )}
@@ -703,6 +763,38 @@ const IncomeSimulationPage = () => {
         </div>
       </div>
 
+      {calc.isFwm && (
+        <div className="card is-maab-status">
+          <h2 className="section-title">MAAB Status</h2>
+          <div className="is-maab-readout">
+            <span className="is-maab-count">
+              MAAB: {calc.activeAgentCount} = {(calc.maabRate * 100).toFixed(0)}%
+            </span>
+            <span className="is-maab-amount">{money(calc.annualMaab)}</span>
+          </div>
+          {calc.maabTier ? (
+            <p className="is-hint">
+              Currently in the <strong>{calc.maabTier.tier}</strong> tier with {calc.activeAgentCount} active
+              agent{calc.activeAgentCount === 1 ? '' : 's'} (including self).
+            </p>
+          ) : (
+            <p className="is-hint">
+              Not yet qualified for MAAB. {3 - calc.activeAgentCount} more active
+              agent{3 - calc.activeAgentCount === 1 ? '' : 's'} (at least ₱10,000 APE each) would reach the Base
+              tier (10%) — potential annual MAAB at that tier: <strong>{money(calc.overrideIncome * 0.10)}</strong>.
+            </p>
+          )}
+          {calc.maabNext && (
+            <p className="is-hint">
+              {calc.maabNext.minAgents - calc.activeAgentCount} more active
+              agent{calc.maabNext.minAgents - calc.activeAgentCount === 1 ? '' : 's'} would reach
+              the <strong>{calc.maabNext.tier}</strong> tier ({(calc.maabNext.rate * 100).toFixed(0)}%) — potential
+              annual MAAB: <strong>{money(calc.overrideIncome * calc.maabNext.rate)}</strong>.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="card">
         <h2 className="section-title">Bonus Reference Tables</h2>
 
@@ -737,7 +829,7 @@ const IncomeSimulationPage = () => {
           <div className="is-bonus-table-block">
             <h3>Monthly Volume Bonus (MVB)</h3>
             <p className="is-bonus-note">
-              Meet the minimum levels in monthly APE (net of cancellations) to earn a percentage of the monthly FYC.
+              Meet the minimum monthly APE level, net of cancellations, to earn a percentage of your monthly FYC. Take note that this is cumulative. As you close more cases and increase your APE, your total FYC also grows, allowing you to reach higher reward levels and earn more.
             </p>
             <div className="is-table-wrap">
               <table className="data-table is-ref-table is-mvb-table">
@@ -764,7 +856,8 @@ const IncomeSimulationPage = () => {
           <div className="is-bonus-table-block">
             <h3>MONTHLY ACTIVE AGENTS BONUS (MAAB)</h3>
             <p className="is-bonus-note">
-              Rate applied to a Financial Wealth Manager&apos;s monthly ORC, based on their number of active agents.
+              Rate applied to a Financial Wealth Manager&apos;s monthly ORC, based on their number of active
+              agents including self. At least an APE of ₱10,000 is required to be considered activated.
             </p>
             <div className="is-table-wrap">
               <table className="data-table is-ref-table is-maab-ref-table">

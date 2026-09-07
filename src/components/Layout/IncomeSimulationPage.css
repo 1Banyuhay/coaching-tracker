@@ -19,11 +19,19 @@
 .is-reset-btn:hover { background: rgba(255, 255, 255, 0.28); }
 
 .is-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.25rem;
   margin-bottom: 1rem;
 }
+
+.is-field { flex: 0 0 auto; }
+
+.is-field .is-input-wrap { width: 210px; }
+
+.is-field .is-input-wrap.is-narrow { width: 90px; max-width: 90px; }
+
+.is-field .is-goal-group { width: 240px; }
 
 .is-field label {
   display: block;
@@ -64,6 +72,7 @@
 
 .is-prefix,
 .is-suffix {
+  flex-shrink: 0;
   padding: 0.625rem 0 0.625rem 0.75rem;
   color: #999;
   font-weight: 700;
@@ -155,10 +164,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
-.is-team-summary { grid-template-columns: repeat(3, 1fr); }
+.is-summary-4 { grid-template-columns: repeat(4, 1fr); }
+
+.is-summary-solo { grid-template-columns: minmax(220px, 320px); }
 
 .is-metric-value {
   font-size: 22px;
@@ -167,6 +178,38 @@
 }
 
 .is-total-card .is-metric-value { color: #2d5016; }
+
+.is-orange-card { border-left-color: #d4762b; }
+.is-orange-card .metric-label { color: #d4762b; }
+.is-orange-card .is-metric-value { color: #d4762b; }
+
+.is-green-card .metric-label { color: #2d5016; }
+
+/* MAAB status panel ---------------------------------------------------- */
+
+.is-maab-status { margin-bottom: 1.25rem; }
+
+.is-maab-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.is-maab-count {
+  font-size: 18px;
+  font-weight: 800;
+  color: #6b4423;
+}
+
+.is-maab-amount {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2d5016;
+}
+
+.is-maab-status .is-hint { margin: 0.4rem 0 0; }
 
 /* Monthly production table ------------------------------------------ */
 
@@ -345,10 +388,14 @@
   .is-goal-strip { grid-template-columns: 1fr; }
   .is-goal-result { text-align: left; }
   .is-bonus-tables { grid-template-columns: 1fr; }
-  .is-team-summary { grid-template-columns: 1fr 1fr; }
+  .is-summary-4 { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 600px) {
-  .is-controls { grid-template-columns: 1fr; }
+  .is-field { flex: 1 1 100%; }
+  .is-field .is-input-wrap,
+  .is-field .is-input-wrap.is-narrow,
+  .is-field .is-goal-group { width: 100%; max-width: none; }
   .is-goal-group { grid-template-columns: 1fr; }
+  .is-summary-4 { grid-template-columns: 1fr; }
 }
