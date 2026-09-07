@@ -597,7 +597,7 @@ const IncomeSimulationPage = () => {
                 const partnerList = calc.partnersComputed[i] || [];
                 return (
                   <React.Fragment key={label}>
-                    <tr className={i % 2 === 1 ? 'is-month-row is-month-row-alt' : 'is-month-row'}>
+                    <tr>
                       <td className="is-month">{label}</td>
                       <td>
                         <input

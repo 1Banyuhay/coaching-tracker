@@ -222,19 +222,6 @@
 .is-plan-table th,
 .is-plan-table td { white-space: nowrap; }
 
-/* The header row (Month / Case Count / Avg. Case Size / APE / Payment
-   Mode / ...) stays visible while scrolling down past a long month
-   list, so it's always clear which column is which. 61px matches the
-   height of the sticky top navbar so the header docks just beneath it
-   instead of being covered by it. */
-.is-plan-table thead th {
-  position: sticky;
-  top: 61px;
-  z-index: 3;
-  background: #f9f7f4;
-  box-shadow: 0 1px 0 #e0d8d0;
-}
-
 .is-plan-table tfoot td {
   background: #2c2c2c;
   color: #fff;
@@ -243,12 +230,6 @@
 }
 
 .is-month { font-weight: 700; color: #2c2c2c; }
-
-/* Give each month row a bit more breathing room and a light zebra tint
-   so consecutive months are easy to tell apart at a glance. */
-.is-month-row td { padding-top: 1.1rem; padding-bottom: 1.1rem; }
-.is-month-row-alt td { background: #fbf9f6; }
-.is-month-row-alt td.is-income { background: #fbf3ea; }
 
 /* ORC "link" cells + breakdown panel ---------------------------------- */
 
