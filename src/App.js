@@ -259,6 +259,7 @@ function App() {
               {/* Catch all */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <footer className="app-footer">© 2026 Mikko James D. Rodriguez. All rights reserved.</footer>
           </div>
         </div>
       </div>

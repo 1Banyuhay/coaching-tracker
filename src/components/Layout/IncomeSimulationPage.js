@@ -736,8 +736,6 @@ const IncomeSimulationPage = () => {
           current company compensation rules.
         </p>
       </div>
-
-      <p className="is-copyright">© 2026 Mikko James D. Rodriguez. All rights reserved.</p>
     </div>
   );
 };

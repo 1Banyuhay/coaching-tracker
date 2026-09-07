@@ -19,6 +19,21 @@
   padding: 0;
   background-color: #f5f1ed;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-footer {
+  margin-top: auto;
+  padding: 1.25rem 2rem;
+  text-align: center;
+  font-size: 11.5px;
+  color: #a89a8c;
+  background-color: #f5f1ed;
+}
+
+@media (max-width: 768px) {
+  .app-footer { padding: 1rem; }
 }
 
 .dashboard-title h1 {
