@@ -154,7 +154,7 @@ function projectedPersonal(personal, rate, persistency, extraCases, overrideInco
   return total + overrideIncome;
 }
 
-const defaultMonths = () => MONTHS.map(() => ({ cases: 0, size: 36000, mode: 'monthly' }));
+const defaultMonths = () => MONTHS.map(() => ({ cases: 0, size: 36000, mode: 'annual' }));
 const defaultPartners = () => MONTHS.map(() => []);
 
 const loadSaved = () => {
@@ -214,7 +214,7 @@ const IncomeSimulationPage = () => {
     setPartners((prev) =>
       prev.map((list, i) =>
         i === monthIndex
-          ? [...list, { id: `${Date.now()}-${Math.random()}`, name: '', structure: 'direct', cases: 0, size: 24000, mode: 'monthly' }]
+          ? [...list, { id: `${Date.now()}-${Math.random()}`, name: '', structure: 'direct', cases: 0, size: 24000, mode: 'annual' }]
           : list
       )
     );
@@ -859,7 +859,7 @@ const IncomeSimulationPage = () => {
           <div className="is-bonus-table-block">
             <h3>Monthly Volume Bonus (MVB)</h3>
             <p className="is-bonus-note">
-              Meet the minimum monthly APE level, net of cancellations, to earn a percentage of your monthly FYC. Take note that this is cumulative. As you close more cases and increase your APE, your total FYC also grows, allowing you to reach higher reward levels and earn more.
+              Meet the minimum monthly APE level, net of cancellations, to earn a percentage of your monthly FYC. Take note that this is cumulative. As you close more cases and increase your APE, your total FYC also grows.
             </p>
             <div className="is-table-wrap">
               <table className="data-table is-ref-table is-mvb-table">
