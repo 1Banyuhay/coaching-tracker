@@ -76,9 +76,17 @@ const PlannerDashboard = () => {
     { key: 'coach_name', label: 'From' },
     { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
     { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
+    { key: 'status', label: 'Status', render: (row) => statusBadge(row.status) },
   ];
 
   const modals = {
+    totalSessions: {
+      title: 'Coaching Sessions',
+      subtitle: 'Every coaching session logged with you, all-time',
+      columns: sessionColumns,
+      rows: records,
+      emptyMessage: 'No coaching sessions logged yet',
+    },
     needAction: {
       title: 'Need Action',
       subtitle: 'Coaching from your Senior Manager or Manager, waiting on your acknowledgement',
@@ -103,7 +111,7 @@ const PlannerDashboard = () => {
     },
     acknowledged: {
       title: 'Acknowledged',
-      subtitle: 'Coaching sessions you have acknowledged',
+      subtitle: 'Coaching sessions you have acted on - acknowledged or completed a full cycle',
       columns: sessionColumns,
       rows: data.acknowledgedSessions || [],
       emptyMessage: 'No acknowledged sessions yet',
@@ -144,6 +152,14 @@ const PlannerDashboard = () => {
             {stats.needAction || 0}
           </button>
           <div className="metric-detail">from Manager / Senior Manager</div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-label">Coaching Sessions</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('totalSessions')}>
+            {stats.totalSessions || 0}
+          </button>
+          <div className="metric-detail">logged, all-time</div>
         </div>
 
         <div className="metric-card metric-success">

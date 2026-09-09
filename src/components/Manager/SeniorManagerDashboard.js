@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { dashboardService, sessionEffectiveDate } from '../../services/dashboardService';
+import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
 import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
@@ -15,6 +16,12 @@ const competencyLabel = (level) => {
   if (!level) return '—';
   const rounded = Math.round(level);
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
+};
+
+const sessionStatusBadge = (status) => {
+  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+  return <span className="status-badge status-pending">Pending</span>;
 };
 
 const SeniorManagerDashboard = () => {
@@ -127,6 +134,13 @@ const SeniorManagerDashboard = () => {
     { key: 'sessions', label: 'Sessions' },
   ];
 
+  const sessionListColumns = [
+    { key: 'planner_name', label: 'Planner' },
+    { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
+    { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
+    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row.status) },
+  ];
+
   const modals = {
     needCoaching: {
       title: 'Need Coaching',
@@ -135,12 +149,19 @@ const SeniorManagerDashboard = () => {
       rows: plannerRows(buckets.needCoaching),
       emptyMessage: 'Every planner has at least 2 sessions',
     },
+    totalSessions: {
+      title: 'Coaching Sessions',
+      subtitle: 'Every coaching session logged with a planner in your branch, all-time',
+      columns: sessionListColumns,
+      rows: data.sessions || [],
+      emptyMessage: 'No coaching sessions logged yet',
+    },
     acknowledged: {
       title: 'Acknowledged',
-      subtitle: 'Planners actively being coached (2+ sessions, cycle not yet complete)',
-      columns: plannerColumns,
-      rows: plannerRows(buckets.acknowledged),
-      emptyMessage: 'No planners in this group yet',
+      subtitle: 'Sessions your planners have acted on - acknowledged or completed a full cycle',
+      columns: sessionListColumns,
+      rows: (data.sessions || []).filter((s) => s.status !== 'pending'),
+      emptyMessage: 'No sessions acknowledged yet',
     },
     completed: {
       title: 'Completed',
@@ -215,12 +236,20 @@ const SeniorManagerDashboard = () => {
           <div className="metric-detail">planners with 0-1 session</div>
         </div>
 
+        <div className="metric-card">
+          <div className="metric-label">Coaching Sessions</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('totalSessions')}>
+            {stats.totalSessions || 0}
+          </button>
+          <div className="metric-detail">logged, all-time</div>
+        </div>
+
         <div className="metric-card metric-success">
           <div className="metric-label">Acknowledged</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('acknowledged')}>
             {stats.acknowledged || 0}
           </button>
-          <div className="metric-detail">planners acknowledged</div>
+          <div className="metric-detail">sessions acknowledged</div>
         </div>
 
         <div className="metric-card metric-success">

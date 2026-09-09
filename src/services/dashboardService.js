@@ -249,7 +249,11 @@ export const dashboardService = {
         stats: {
           needAction: incomingRecords.length,
           needCoaching: buckets.needCoaching.length,
-          acknowledged: buckets.acknowledged.length,
+          // Session-level counts (separate from the planner-level buckets
+          // above) - the goal is for these two to read as the same number
+          // once nothing a planner has been given is still sitting pending.
+          totalSessions: givenRecords.length,
+          acknowledged: givenRecords.filter((r) => r.status !== 'pending').length,
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
@@ -362,7 +366,11 @@ export const dashboardService = {
       return {
         stats: {
           needCoaching: buckets.needCoaching.length,
-          acknowledged: buckets.acknowledged.length,
+          // Session-level counts (separate from the planner-level buckets
+          // above) - the goal is for these two to read as the same number
+          // once nothing logged in the branch is still sitting pending.
+          totalSessions: scopedRecords.length,
+          acknowledged: scopedRecords.filter((r) => r.status !== 'pending').length,
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
@@ -397,7 +405,11 @@ export const dashboardService = {
 
       const records = await attachFollowUpInfo(recordsRaw || []);
       const needAction = records.filter((r) => r.status === 'pending');
-      const acknowledged = records.filter((r) => r.status === 'acknowledged');
+      // "Acknowledged" here means "acted on" - anything no longer sitting
+      // pending, whether or not it has since gone on to a full completed
+      // cycle. This is what lets Coaching Sessions and Acknowledged read
+      // as the same number once nothing is left pending.
+      const acknowledged = records.filter((r) => r.status !== 'pending');
       const completed = records.filter((r) => r.status === 'coaching_complete');
 
       const competencyValues = records
@@ -412,6 +424,7 @@ export const dashboardService = {
       return {
         stats: {
           needAction: needAction.length,
+          totalSessions: records.length,
           acknowledged: acknowledged.length,
           completed: completed.length,
           avgCompetency,

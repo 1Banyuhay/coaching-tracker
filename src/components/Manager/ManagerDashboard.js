@@ -18,6 +18,12 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
+const sessionStatusBadge = (status) => {
+  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+  return <span className="status-badge status-pending">Pending</span>;
+};
+
 const ManagerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -135,6 +141,13 @@ const ManagerDashboard = () => {
     status: s.status,
   }));
 
+  const sessionListColumns = [
+    { key: 'planner_name', label: 'Planner' },
+    { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
+    { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
+    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row.status) },
+  ];
+
   const modals = {
     needAction: {
       title: 'Need Action',
@@ -167,12 +180,19 @@ const ManagerDashboard = () => {
       rows: plannerRows(buckets.needCoaching),
       emptyMessage: 'Everyone on your team has at least 2 sessions',
     },
+    totalSessions: {
+      title: 'Coaching Sessions',
+      subtitle: 'Every coaching session you have logged with a planner, all-time',
+      columns: sessionListColumns,
+      rows: data.sessions || [],
+      emptyMessage: 'No coaching sessions logged yet',
+    },
     acknowledged: {
       title: 'Acknowledged',
-      subtitle: 'Planners actively being coached (2+ sessions, cycle not yet complete)',
-      columns: plannerColumns,
-      rows: plannerRows(buckets.acknowledged),
-      emptyMessage: 'No planners in this group yet',
+      subtitle: 'Sessions your planners have acted on - acknowledged or completed a full cycle',
+      columns: sessionListColumns,
+      rows: (data.sessions || []).filter((s) => s.status !== 'pending'),
+      emptyMessage: 'No sessions acknowledged yet',
     },
     completed: {
       title: 'Completed',
@@ -234,12 +254,20 @@ const ManagerDashboard = () => {
           <div className="metric-detail">planners with 0-1 session</div>
         </div>
 
+        <div className="metric-card">
+          <div className="metric-label">Coaching Sessions</div>
+          <button className="metric-value-btn" onClick={() => setActiveCard('totalSessions')}>
+            {stats.totalSessions || 0}
+          </button>
+          <div className="metric-detail">logged, all-time</div>
+        </div>
+
         <div className="metric-card metric-success">
           <div className="metric-label">Acknowledged</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('acknowledged')}>
             {stats.acknowledged || 0}
           </button>
-          <div className="metric-detail">planners acknowledged</div>
+          <div className="metric-detail">sessions acknowledged</div>
         </div>
 
         <div className="metric-card metric-success">
