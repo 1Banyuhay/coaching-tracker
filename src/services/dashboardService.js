@@ -214,6 +214,22 @@ export function followUpCounts(sessions) {
   return counts;
 }
 
+// coaching_records.created_at/updated_at are Postgres "timestamp without
+// time zone" columns - PostgREST serializes them with no offset (e.g.
+// "2026-09-09T09:58:28.945"), even though every write in this app stores
+// them as UTC (new Date().toISOString()). JavaScript's Date parser treats
+// an offset-less date-TIME string as LOCAL time, not UTC, so plain
+// new Date(record.created_at) silently shifts by the viewer's UTC offset -
+// wrong by a fixed 8 hours for every user here (Asia/Manila, UTC+8), which
+// is fatal to a 24-hour deadline. Parse explicitly as UTC instead. (A
+// date-ONLY string like follow_up_date, e.g. "2026-09-17", doesn't have
+// this problem - the spec already parses that form as UTC.)
+function parseUtcTimestamp(value) {
+  if (!value) return null;
+  const hasOffset = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
+  return new Date(hasOffset ? value : `${value}Z`);
+}
+
 // A pending coaching log has exactly this many hours to be acknowledged
 // before it permanently stops counting as a coaching session - see
 // countsTowardStats below. Reinforces that coaching isn't "done" until
@@ -228,7 +244,7 @@ export const ACKNOWLEDGE_WINDOW_HOURS = 24;
 // refuses to update a record in this state, and there is no override.
 export function isAcknowledgeExpired(record) {
   if (record.status !== 'pending') return false;
-  const hoursSinceLogged = (Date.now() - new Date(record.created_at).getTime()) / 3600000;
+  const hoursSinceLogged = (Date.now() - parseUtcTimestamp(record.created_at).getTime()) / 3600000;
   return hoursSinceLogged >= ACKNOWLEDGE_WINDOW_HOURS;
 }
 
@@ -241,7 +257,7 @@ export function isAcknowledgeExpired(record) {
 //   past due  - 'expired' - permanently excluded from stats now
 export function acknowledgeWindowStatus(record) {
   if (record.status !== 'pending') return null;
-  const hoursSinceLogged = (Date.now() - new Date(record.created_at).getTime()) / 3600000;
+  const hoursSinceLogged = (Date.now() - parseUtcTimestamp(record.created_at).getTime()) / 3600000;
   const hoursLeft = ACKNOWLEDGE_WINDOW_HOURS - hoursSinceLogged;
 
   if (hoursLeft <= 0) return { level: 'expired', label: 'Expired - not acknowledged in time' };
@@ -303,7 +319,7 @@ export function filterRecordsByPeriod(records, period) {
   }
 
   return records.filter((record) => {
-    const effectiveDate = new Date(sessionEffectiveDate(record));
+    const effectiveDate = parseUtcTimestamp(sessionEffectiveDate(record));
     const year = effectiveDate.getFullYear();
     const month = effectiveDate.getMonth();
     const quarter = Math.floor(month / 3);
