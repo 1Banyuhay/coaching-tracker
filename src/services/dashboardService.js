@@ -207,7 +207,7 @@ export function followUpCounts(sessions) {
   return counts;
 }
 
-// Which date a session should be counted under for the MTD/QTD/YTD period
+// Which date a session should be counted under for the Current/Previous/QTD/YTD period
 // filter. A session that's still open counts under when it was logged
 // (created_at). One that's been completed counts under when it was
 // actually completed (updated_at, set the moment its follow-up was
@@ -218,6 +218,91 @@ export function sessionEffectiveDate(session) {
   return session.status === 'coaching_complete' && session.updated_at
     ? session.updated_at
     : session.created_at;
+}
+
+// The four periods offered by the consolidated dashboard period selector.
+export const PERIOD_OPTIONS = ['Current', 'Previous', 'QTD', 'YTD'];
+
+// Filters a list of coaching_records-shaped rows down to one reporting
+// period, using sessionEffectiveDate() to decide which period a record
+// falls under (see that function's comment - an open session counts under
+// when it was logged, a completed one under when it was completed).
+//   Current  - this calendar month so far
+//   Previous - the full previous calendar month
+//   QTD      - this calendar quarter so far
+//   YTD      - this calendar year so far
+// Any other value (or none) returns every record, unfiltered.
+export function filterRecordsByPeriod(records, period) {
+  if (!records) return [];
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3);
+
+  let prevMonth = currentMonth - 1;
+  let prevMonthYear = currentYear;
+  if (prevMonth < 0) {
+    prevMonth = 11;
+    prevMonthYear = currentYear - 1;
+  }
+
+  return records.filter((record) => {
+    const effectiveDate = new Date(sessionEffectiveDate(record));
+    const year = effectiveDate.getFullYear();
+    const month = effectiveDate.getMonth();
+    const quarter = Math.floor(month / 3);
+
+    switch (period) {
+      case 'Current':
+        return year === currentYear && month === currentMonth;
+      case 'Previous':
+        return year === prevMonthYear && month === prevMonth;
+      case 'QTD':
+        return year === currentYear && quarter === currentQuarter;
+      case 'YTD':
+        return year === currentYear;
+      default:
+        return true;
+    }
+  });
+}
+
+// All-time, period-independent per-planner rollup used by the Planner
+// Summary tab (Manager dashboard) and the List of Planners tab (Senior
+// Manager dashboard) - one row per planner regardless of whatever period
+// the rest of the dashboard is currently showing.
+//
+// `usersById` is optional: when passed (a Map<id, user>, as returned by
+// getUsersByIds), each row also gets managerId/managerName resolved from
+// the planner's reports_to_id - used only by the Senior Manager dashboard,
+// where a row can belong to any of several managers.
+export function summarizeByPlanner(planners, records, usersById) {
+  return planners.map((p) => {
+    const myRecords = records.filter((r) => r.planner_id === p.id);
+    const competencyValues = myRecords
+      .map((r) => r.competency_level)
+      .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+    const avgCompetency = competencyValues.length
+      ? competencyValues.reduce((a, b) => a + b, 0) / competencyValues.length
+      : null;
+    const mostRecentDate = myRecords.length
+      ? myRecords.reduce((latest, r) => (r.created_at > latest ? r.created_at : latest), myRecords[0].created_at)
+      : null;
+
+    return {
+      id: p.id,
+      name: p.full_name,
+      branch: p.branch || '—',
+      managerId: p.reports_to_id,
+      managerName: usersById ? usersById.get(p.reports_to_id)?.full_name || '—' : undefined,
+      totalSessions: myRecords.length,
+      acknowledged: myRecords.filter((r) => r.status !== 'pending').length,
+      completed: myRecords.filter((r) => r.status === 'coaching_complete').length,
+      avgCompetency,
+      mostRecentDate,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -280,6 +365,14 @@ export const dashboardService = {
           pctCoached: buckets.pctCoached,
         },
         buckets,
+        // Roster (all-time, unfiltered) - kept alongside the all-time
+        // buckets/stats above so the dashboard can recompute period-scoped
+        // buckets client-side for the Current/Previous/QTD/YTD selector,
+        // without a second round-trip to the database.
+        roster,
+        // All-time per-planner rollup for the Planner Summary tab, which
+        // always shows full history regardless of the period selector.
+        plannerSummaries: summarizeByPlanner(roster, givenRecords),
         sessions: attachNames(sessionsWithFollowUp, usersById),
         needActionSessions: attachNames(incomingRecords, usersById),
       };
@@ -399,6 +492,14 @@ export const dashboardService = {
         buckets,
         managers,
         managerSummaries,
+        // Branch roster (all-time, unfiltered) - see the same note in
+        // getManagerDashboard above.
+        roster: planners,
+        // All-time per-planner rollup for the List of Planners tab, which
+        // always shows full history regardless of the period selector.
+        // usersById resolves each planner's manager name for the Manager
+        // column.
+        plannerSummaries: summarizeByPlanner(planners, scopedRecords, usersById),
         sessions: plannerSessions,
         managerSessions,
       };

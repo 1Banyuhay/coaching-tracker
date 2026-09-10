@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService, sessionEffectiveDate } from '../../services/dashboardService';
+import { dashboardService, categorizePlanners, filterRecordsByPeriod } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
@@ -9,6 +9,13 @@ import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import PlannerCoachingModal from '../Layout/PlannerCoachingModal';
 import FollowUpBanner from '../Layout/FollowUpBanner';
 import './ManagerDashboard.css';
+
+const PERIOD_DESCRIPTIONS = {
+  Current: 'this month so far',
+  Previous: 'last month',
+  QTD: 'this quarter so far',
+  YTD: 'this year so far',
+};
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
 
@@ -29,7 +36,7 @@ const SeniorManagerDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [dateRange, setDateRange] = useState('MTD');
+  const [dateRange, setDateRange] = useState('Current');
   const [sessionsRowsPerPage, setSessionsRowsPerPage] = useState(20);
   const [managerSessionsRowsPerPage, setManagerSessionsRowsPerPage] = useState(20);
   const [activeCard, setActiveCard] = useState(null);
@@ -49,32 +56,6 @@ const SeniorManagerDashboard = () => {
     loadData();
   }, [loadData]);
 
-  const filterDataByDateRange = (sessions) => {
-    if (!sessions) return [];
-
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentQuarter = Math.floor(currentMonth / 3);
-
-    return sessions.filter((session) => {
-      const sessionDate = new Date(sessionEffectiveDate(session));
-      const sessionYear = sessionDate.getFullYear();
-      const sessionMonth = sessionDate.getMonth();
-      const sessionQuarter = Math.floor(sessionMonth / 3);
-
-      switch (dateRange) {
-        case 'MTD':
-          return sessionYear === currentYear && sessionMonth === currentMonth;
-        case 'QTD':
-          return sessionYear === currentYear && sessionQuarter === currentQuarter;
-        case 'YTD':
-          return sessionYear === currentYear;
-        default:
-          return true;
-      }
-    });
-  };
 
   const generateRowsOptions = (maxRows) => {
     const options = [20, 30, 40, 50, 100];
@@ -103,22 +84,35 @@ const SeniorManagerDashboard = () => {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>No data</div>;
   }
 
-  const allPlanners = [...(data.buckets?.needCoaching || []), ...(data.buckets?.acknowledged || []), ...(data.buckets?.completed || [])]
-    .map((e) => e.planner);
   const managersForPicker = [...(data.managers || [])].sort((a, b) => a.full_name.localeCompare(b.full_name));
-  const plannersForSelectedManager = selectedManagerId
-    ? allPlanners
-        .filter((p) => String(p.reports_to_id) === String(selectedManagerId))
-        .sort((a, b) => a.full_name.localeCompare(b.full_name))
-    : [];
   const sessionsForPlanner = (plannerId) => (data.sessions || []).filter((s) => s.planner_id === plannerId);
 
-  const filteredSessions = filterDataByDateRange(data.sessions);
-  const sessionRowsOptions = generateRowsOptions(filteredSessions.length);
-  const filteredManagerSessions = filterDataByDateRange(data.managerSessions);
-  const managerSessionRowsOptions = generateRowsOptions(filteredManagerSessions.length);
-  const stats = data.stats || {};
-  const buckets = data.buckets || { needCoaching: [], acknowledged: [], completed: [] };
+  // Session-level counts and planner-level buckets both move together with
+  // the period selector above the metrics grid, recomputed here from the
+  // all-time data the service returned. Total Planners (roster count) stays
+  // live/current regardless of period - see the discussion notes doc.
+  const periodRecords = filterRecordsByPeriod(data.sessions, dateRange);
+  const sessionRowsOptions = generateRowsOptions(periodRecords.length);
+  const periodManagerRecords = filterRecordsByPeriod(data.managerSessions, dateRange);
+  const managerSessionRowsOptions = generateRowsOptions(periodManagerRecords.length);
+  const periodBuckets = categorizePlanners(data.roster || [], periodRecords);
+  const periodStats = {
+    needCoaching: periodBuckets.needCoaching.length,
+    totalSessions: periodRecords.length,
+    acknowledged: periodRecords.filter((r) => r.status !== 'pending').length,
+    completed: periodBuckets.completed.length,
+    avgCompetency: periodBuckets.avgCompetency,
+    totalPlanners: periodBuckets.totalPlanners,
+    coachedAtLeastOnce: periodBuckets.coachedAtLeastOnce,
+    pctCoached: periodBuckets.pctCoached,
+  };
+
+  // All-time, always-current roster rollup for the List of Planners tab -
+  // independent of the period selector above. Defaults to the whole
+  // branch; the manager picker narrows it to one manager's planners.
+  const plannerSummaries = [...(data.plannerSummaries || [])]
+    .filter((row) => !selectedManagerId || String(row.managerId) === String(selectedManagerId))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const plannerRows = (entries) =>
     entries.map((entry) => ({
@@ -144,53 +138,51 @@ const SeniorManagerDashboard = () => {
   const modals = {
     needCoaching: {
       title: 'Need Coaching',
-      subtitle: 'Planners in your branch with 0-1 coaching session so far',
+      subtitle: `Planners in your branch with 0-1 coaching session, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: plannerColumns,
-      rows: plannerRows(buckets.needCoaching),
-      emptyMessage: 'Every planner has at least 2 sessions',
+      rows: plannerRows(periodBuckets.needCoaching),
+      emptyMessage: 'Every planner has at least 2 sessions in this period',
     },
     totalSessions: {
       title: 'Coaching Sessions',
-      subtitle: 'Every coaching session logged with a planner in your branch, all-time',
+      subtitle: `Every coaching session logged with a planner in your branch, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: data.sessions || [],
-      emptyMessage: 'No coaching sessions logged yet',
+      rows: periodRecords,
+      emptyMessage: 'No coaching sessions logged in this period',
     },
     acknowledged: {
       title: 'Acknowledged',
-      subtitle: 'Sessions your planners have acted on - acknowledged or completed a full cycle',
+      subtitle: `Sessions your planners have acted on - acknowledged or completed a full cycle, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: (data.sessions || []).filter((s) => s.status !== 'pending'),
-      emptyMessage: 'No sessions acknowledged yet',
+      rows: periodRecords.filter((s) => s.status !== 'pending'),
+      emptyMessage: 'No sessions acknowledged in this period',
     },
     completed: {
       title: 'Completed',
-      subtitle: 'Planners who finished a full coaching cycle',
+      subtitle: `Planners who finished a full coaching cycle, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: plannerColumns,
-      rows: plannerRows(buckets.completed),
-      emptyMessage: 'No completed cycles yet',
+      rows: plannerRows(periodBuckets.completed),
+      emptyMessage: 'No completed cycles in this period',
     },
     competency: {
       title: 'Branch Competency',
-      subtitle: 'Every rated coaching session behind your branch average',
+      subtitle: `Every rated coaching session behind your branch average, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: [
         { key: 'planner_name', label: 'Planner' },
         { key: 'topic', label: 'Topic' },
         { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
       ],
-      rows: [...buckets.needCoaching, ...buckets.acknowledged, ...buckets.completed]
-        .flatMap((e) => e.records.map((r) => ({ ...r, planner_name: e.planner.full_name })))
-        .filter((r) => r.competency_level),
-      emptyMessage: 'No competency ratings recorded yet',
+      rows: periodRecords.filter((r) => r.competency_level),
+      emptyMessage: 'No competency ratings recorded in this period',
     },
     totalPlanners: {
       title: 'Total Planners in Your Branch',
-      subtitle: 'Everyone reporting to a manager in your branch',
+      subtitle: 'Everyone reporting to a manager in your branch, regardless of period',
       columns: [{ key: 'name', label: 'Planner' }, { key: 'branch', label: 'Branch' }],
-      rows: [...buckets.needCoaching, ...buckets.acknowledged, ...buckets.completed].map((e) => ({
-        id: e.planner.id,
-        name: e.planner.full_name,
-        branch: e.planner.branch || '—',
+      rows: (data.roster || []).map((planner) => ({
+        id: planner.id,
+        name: planner.full_name,
+        branch: planner.branch || '—',
       })),
       emptyMessage: 'No planners registered yet',
     },
@@ -227,55 +219,70 @@ const SeniorManagerDashboard = () => {
 
       {activeTab === 'overview' && (
       <>
+      <div className="card period-selector-card">
+        <div className="filter-controls" style={{ marginBottom: 0 }}>
+          <div className="filter-group">
+            <label>Period:</label>
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="filter-select">
+              <option value="Current">Current</option>
+              <option value="Previous">Previous</option>
+              <option value="QTD">QTD</option>
+              <option value="YTD">YTD</option>
+            </select>
+          </div>
+          <div className="period-description">Showing the cards and sessions below for {PERIOD_DESCRIPTIONS[dateRange]}</div>
+        </div>
+      </div>
+
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-label">Need Coaching</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('needCoaching')}>
-            {stats.needCoaching || 0}
+            {periodStats.needCoaching || 0}
           </button>
-          <div className="metric-detail">planners with 0-1 session</div>
+          <div className="metric-detail">{`planners with 0-1 session, ${PERIOD_DESCRIPTIONS[dateRange]}`}</div>
         </div>
 
         <div className="metric-card">
           <div className="metric-label">Coaching Sessions</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('totalSessions')}>
-            {stats.totalSessions || 0}
+            {periodStats.totalSessions || 0}
           </button>
-          <div className="metric-detail">logged, all-time</div>
+          <div className="metric-detail">{`logged, ${PERIOD_DESCRIPTIONS[dateRange]}`}</div>
         </div>
 
         <div className="metric-card metric-success">
           <div className="metric-label">Acknowledged</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('acknowledged')}>
-            {stats.acknowledged || 0}
+            {periodStats.acknowledged || 0}
           </button>
-          <div className="metric-detail">sessions acknowledged</div>
+          <div className="metric-detail">{`sessions acknowledged, ${PERIOD_DESCRIPTIONS[dateRange]}`}</div>
         </div>
 
         <div className="metric-card metric-success">
           <div className="metric-label">Completed</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('completed')}>
-            {stats.completed || 0}
+            {periodStats.completed || 0}
           </button>
-          <div className="metric-detail">planners, full cycle</div>
+          <div className="metric-detail">{`planners, full cycle, ${PERIOD_DESCRIPTIONS[dateRange]}`}</div>
         </div>
 
         <div className="metric-card">
           <div className="metric-label">Competency</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('competency')}>
-            {stats.avgCompetency ? stats.avgCompetency.toFixed(1) : '—'}
+            {periodStats.avgCompetency ? periodStats.avgCompetency.toFixed(1) : '—'}
           </button>
-          <div className="metric-detail">team average, 1-4 scale</div>
+          <div className="metric-detail">{`team average, 1-4 scale, ${PERIOD_DESCRIPTIONS[dateRange]}`}</div>
         </div>
 
         <div className="metric-card">
           <div className="metric-label">Total Planners</div>
           <button className="metric-value-btn" onClick={() => setActiveCard('totalPlanners')}>
-            {stats.totalPlanners || 0}
+            {periodStats.totalPlanners || 0}
           </button>
           <div className="metric-detail">
-            {stats.totalPlanners
-              ? `${stats.coachedAtLeastOnce || 0} of ${stats.totalPlanners} (${stats.pctCoached}%) coached at least once`
+            {periodStats.totalPlanners
+              ? `${periodStats.coachedAtLeastOnce || 0} of ${periodStats.totalPlanners} (${periodStats.pctCoached}%) coached at least once, ${PERIOD_DESCRIPTIONS[dateRange]}`
               : 'in your branch'}
           </div>
         </div>
@@ -285,14 +292,6 @@ const SeniorManagerDashboard = () => {
         <h2 className="section-title">COACHING SESSIONS WITH MANAGERS</h2>
 
         <div className="filter-controls">
-          <div className="filter-group">
-            <label>Period:</label>
-            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="filter-select">
-              <option value="MTD">MTD</option>
-              <option value="QTD">QTD</option>
-              <option value="YTD">YTD</option>
-            </select>
-          </div>
           <div className="filter-group">
             <label>Show:</label>
             <select
@@ -308,11 +307,11 @@ const SeniorManagerDashboard = () => {
         </div>
 
         <CoachingSessionsTable
-          sessions={filteredManagerSessions.slice(0, managerSessionsRowsPerPage)}
+          sessions={periodManagerRecords.slice(0, managerSessionsRowsPerPage)}
           recipientLabel="Manager"
           onSelectTopic={setDetailSession}
           onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Manager' } })}
-          emptyMessage={`No coaching sessions with managers in ${dateRange}`}
+          emptyMessage={`No coaching sessions with managers, ${PERIOD_DESCRIPTIONS[dateRange]}`}
         />
 
         <button
@@ -329,14 +328,6 @@ const SeniorManagerDashboard = () => {
 
         <div className="filter-controls">
           <div className="filter-group">
-            <label>Period:</label>
-            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="filter-select">
-              <option value="MTD">MTD</option>
-              <option value="QTD">QTD</option>
-              <option value="YTD">YTD</option>
-            </select>
-          </div>
-          <div className="filter-group">
             <label>Show:</label>
             <select
               value={sessionsRowsPerPage}
@@ -351,12 +342,12 @@ const SeniorManagerDashboard = () => {
         </div>
 
         <CoachingSessionsTable
-          sessions={filteredSessions.slice(0, sessionsRowsPerPage)}
+          sessions={periodRecords.slice(0, sessionsRowsPerPage)}
           recipientLabel="Planner"
           coachColumnLabel="Manager"
           onSelectTopic={setDetailSession}
           onLogFollowUp={(session) => navigate('/manager/coaching/start', { state: { followUpFrom: session, recipientLabel: 'Planner' } })}
-          emptyMessage={`No coaching sessions in ${dateRange}`}
+          emptyMessage={`No coaching sessions, ${PERIOD_DESCRIPTIONS[dateRange]}`}
         />
 
         <button type="button" className="cta-button" onClick={() => navigate('/manager/coaching/start')}>
@@ -369,6 +360,7 @@ const SeniorManagerDashboard = () => {
       {activeTab === 'byPlanners' && (
         <div className="card">
           <h2 className="section-title">LIST OF PLANNERS</h2>
+          <p className="period-description" style={{ marginBottom: '1.25rem' }}>All-time totals for every planner in your branch, regardless of the period selector on Branch Overview.</p>
 
           <div className="filter-controls">
             <div className="filter-group">
@@ -378,7 +370,7 @@ const SeniorManagerDashboard = () => {
                 onChange={(e) => setSelectedManagerId(e.target.value)}
                 className="filter-select"
               >
-                <option value="">Select a manager...</option>
+                <option value="">All Managers</option>
                 {managersForPicker.map((m) => (
                   <option key={m.id} value={m.id}>{m.full_name}</option>
                 ))}
@@ -386,29 +378,37 @@ const SeniorManagerDashboard = () => {
             </div>
           </div>
 
-          {!selectedManagerId ? (
-            <div className="no-data">Choose a manager above to see their planners</div>
-          ) : plannersForSelectedManager.length === 0 ? (
+          {plannerSummaries.length === 0 ? (
             <div className="no-data">No planners reporting to this manager yet</div>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Planner</th>
+                  <th>Manager</th>
                   <th>Branch</th>
                   <th>Sessions</th>
+                  <th>Acknowledged</th>
+                  <th>Completed</th>
+                  <th>Avg Competency</th>
+                  <th>Most Recent Coaching Date</th>
                 </tr>
               </thead>
               <tbody>
-                {plannersForSelectedManager.map((planner) => (
-                  <tr key={planner.id}>
+                {plannerSummaries.map((row) => (
+                  <tr key={row.id}>
                     <td>
-                      <button type="button" className="topic-link" onClick={() => setSelectedPlanner(planner)}>
-                        {planner.full_name}
+                      <button type="button" className="topic-link" onClick={() => setSelectedPlanner(row)}>
+                        {row.name}
                       </button>
                     </td>
-                    <td>{planner.branch || '—'}</td>
-                    <td>{sessionsForPlanner(planner.id).length}</td>
+                    <td>{row.managerName || '—'}</td>
+                    <td>{row.branch || '—'}</td>
+                    <td>{row.totalSessions}</td>
+                    <td>{row.acknowledged}</td>
+                    <td>{row.completed}</td>
+                    <td>{row.avgCompetency ? row.avgCompetency.toFixed(1) : '—'}</td>
+                    <td>{row.mostRecentDate ? formatDate(row.mostRecentDate) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -419,7 +419,7 @@ const SeniorManagerDashboard = () => {
 
       {selectedPlanner && (
         <PlannerCoachingModal
-          planner={selectedPlanner}
+          planner={{ id: selectedPlanner.id, full_name: selectedPlanner.name, branch: selectedPlanner.branch }}
           sessions={sessionsForPlanner(selectedPlanner.id)}
           coachColumnLabel="Manager"
           onSelectTopic={setDetailSession}

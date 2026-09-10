@@ -211,6 +211,10 @@
 .filter-select:hover { border-color: #b8a89c; }
 .filter-select:focus { outline: none; border-color: #d4762b; box-shadow: 0 0 0 2px rgba(212, 118, 43, 0.1); }
 
+.period-selector-card { padding: 1.25rem 1.5rem; }
+
+.period-description { font-size: 12px; color: #666; font-style: italic; }
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
