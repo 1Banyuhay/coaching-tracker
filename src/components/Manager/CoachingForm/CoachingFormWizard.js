@@ -257,7 +257,7 @@ const CoachingFormWizard = () => {
               onChange={(e) => setCompetency(parseInt(e.target.value, 10))}
             />
           </div>
-          <div className="info-text">Current selection: {COMPETENCY_LABELS[competency - 1]}</div>
+          <div className="info-text">Current selection: <strong>{COMPETENCY_LABELS[competency - 1]}</strong></div>
         </div>
 
         <div className="log-section">
