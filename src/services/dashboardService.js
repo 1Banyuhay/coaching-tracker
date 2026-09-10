@@ -111,15 +111,34 @@ export function categorizePlanners(planners, records) {
 }
 
 // Mark one coaching record acknowledged (the recipient confirming the
-// session happened). Only moves pending -> acknowledged, never backwards.
+// session happened). Only moves pending -> acknowledged, never backwards -
+// except one case: a session rated Proficient with no follow-up date has
+// nothing left to check up on (that's the "close coaching cycle" choice
+// in the coaching log form), so acknowledging it carries it straight
+// through to 'coaching_complete' in the same action instead of leaving it
+// stuck at 'acknowledged' forever with no way to ever become 'completed'.
+// Returns { closedCycle } so callers can tailor their success message.
 export async function acknowledgeCoachingRecord(recordId) {
+  const { data: record, error: fetchError } = await supabaseClient
+    .from('coaching_records')
+    .select('competency_level, follow_up_date')
+    .eq('id', recordId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const closedCycle = record.competency_level === 4 && !record.follow_up_date;
+  const nextStatus = closedCycle ? 'coaching_complete' : 'acknowledged';
+
   const { error } = await supabaseClient
     .from('coaching_records')
-    .update({ status: 'acknowledged', updated_at: new Date().toISOString() })
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
     .eq('id', recordId)
     .eq('status', 'pending');
 
   if (error) throw error;
+
+  return { closedCycle };
 }
 
 // Logs a brand-new coaching_records row as the follow-up to an earlier one,

@@ -45,12 +45,16 @@ const CoachingFormWizard = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [recipientId, setRecipientId] = useState(followUpFrom ? String(followUpFrom.planner_id) : '');
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(followUpFrom ? followUpFrom.topic : '');
   const [customTopic, setCustomTopic] = useState('');
   const [competency, setCompetency] = useState(2);
   const [discussion, setDiscussion] = useState('');
   const [actionItems, setActionItems] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+  // Only matters when competency is Proficient (see the competency-level
+  // check further down) - true is "close the cycle, no follow-up needed",
+  // false reveals the normal follow-up date picker.
+  const [closeCycle, setCloseCycle] = useState(true);
 
   const dashboardPath = user?.role === 'senior_manager' ? '/senior-manager/dashboard' : '/manager/dashboard';
 
@@ -88,6 +92,10 @@ const CoachingFormWizard = () => {
   }, [user?.id, user?.role, recipientType, followUpFrom, recipientLabel]);
 
   useEffect(() => {
+    // Nothing to load - the topic is locked to the original session's
+    // topic on a follow-up, so the picker never renders.
+    if (followUpFrom) return;
+
     const loadTopics = async () => {
       try {
         const list = await topicsService.getTopicsForRole(recipientType);
@@ -99,12 +107,20 @@ const CoachingFormWizard = () => {
     };
 
     loadTopics();
-  }, [recipientType]);
+  }, [recipientType, followUpFrom]);
 
-  const finalTopic = useMemo(() => (topic === FALLBACK_TOPIC ? customTopic.trim() : topic), [topic, customTopic]);
+  // A follow-up's topic is locked to the original session's topic - it's a
+  // continuation of the same coaching thread, not a place to pick a new one.
+  const finalTopic = useMemo(() => {
+    if (followUpFrom) return followUpFrom.topic;
+    return topic === FALLBACK_TOPIC ? customTopic.trim() : topic;
+  }, [followUpFrom, topic, customTopic]);
+
+  const isProficient = competency === 4;
 
   const isComplete =
-    recipientId && finalTopic && discussion.trim() && actionItems.trim() && followUpDate;
+    recipientId && finalTopic && discussion.trim() && actionItems.trim() &&
+    (isProficient ? (closeCycle || followUpDate) : followUpDate);
 
   const handleSubmit = async () => {
     if (!isComplete) {
@@ -121,7 +137,7 @@ const CoachingFormWizard = () => {
         competency_level: competency,
         discussion_notes: discussion.trim(),
         action_items: actionItems.trim(),
-        follow_up_date: followUpDate,
+        follow_up_date: isProficient && closeCycle ? null : followUpDate,
       };
 
       if (followUpFrom) {
@@ -197,23 +213,29 @@ const CoachingFormWizard = () => {
             <div className="section-title">Coaching Focus Area</div>
           </div>
 
-          <select className="form-control" value={topic} onChange={(e) => setTopic(e.target.value)}>
-            <option value="">-- Select a topic --</option>
-            {topicOptions.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-            <option value={FALLBACK_TOPIC}>{FALLBACK_TOPIC}</option>
-          </select>
+          {followUpFrom ? (
+            <div className="info-text"><strong>{followUpFrom.topic}</strong> (locked - continuing from the original session)</div>
+          ) : (
+            <>
+              <select className="form-control" value={topic} onChange={(e) => setTopic(e.target.value)}>
+                <option value="">-- Select a topic --</option>
+                {topicOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+                <option value={FALLBACK_TOPIC}>{FALLBACK_TOPIC}</option>
+              </select>
 
-          {topic === FALLBACK_TOPIC && (
-            <input
-              type="text"
-              className="form-control"
-              style={{ marginTop: '0.75rem' }}
-              placeholder="Please specify the coaching topic..."
-              value={customTopic}
-              onChange={(e) => setCustomTopic(e.target.value)}
-            />
+              {topic === FALLBACK_TOPIC && (
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ marginTop: '0.75rem' }}
+                  placeholder="Please specify the coaching topic..."
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -262,19 +284,65 @@ const CoachingFormWizard = () => {
             value={actionItems}
             onChange={(e) => setActionItems(e.target.value)}
           />
-          <label className="field-label" htmlFor="followup-date">Follow-Up Date</label>
-          <input
-            id="followup-date"
-            type="date"
-            className="form-control"
-            min={todayStr}
-            max={maxFollowUpStr}
-            value={followUpDate}
-            onChange={(e) => setFollowUpDate(e.target.value)}
-          />
-          <div className="info-text" style={{ marginTop: '0.35rem' }}>
-            Choose a date within the next 15 days.
-          </div>
+          {isProficient ? (
+            <div className="proficient-followup-choice">
+              <div className="info-text">
+                This {recipientLabel.toLowerCase()}&apos;s competency for <strong>{finalTopic || 'this topic'}</strong> is rated Proficient.
+              </div>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="cycle-choice"
+                  checked={closeCycle}
+                  onChange={() => { setCloseCycle(true); setFollowUpDate(''); }}
+                />
+                Close coaching cycle (no follow-up needed)
+              </label>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="cycle-choice"
+                  checked={!closeCycle}
+                  onChange={() => setCloseCycle(false)}
+                />
+                Still schedule a follow-up anyway
+              </label>
+
+              {!closeCycle && (
+                <>
+                  <label className="field-label" htmlFor="followup-date">Follow-Up Date</label>
+                  <input
+                    id="followup-date"
+                    type="date"
+                    className="form-control"
+                    min={todayStr}
+                    max={maxFollowUpStr}
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                  />
+                  <div className="info-text" style={{ marginTop: '0.35rem' }}>
+                    Choose a date within the next 15 days.
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              <label className="field-label" htmlFor="followup-date">Follow-Up Date</label>
+              <input
+                id="followup-date"
+                type="date"
+                className="form-control"
+                min={todayStr}
+                max={maxFollowUpStr}
+                value={followUpDate}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+              />
+              <div className="info-text" style={{ marginTop: '0.35rem' }}>
+                Choose a date within the next 15 days.
+              </div>
+            </>
+          )}
         </div>
 
         <div className="status-bar">

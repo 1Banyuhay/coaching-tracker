@@ -104,6 +104,35 @@ textarea.form-control {
   margin-top: 0.5rem;
 }
 
+.proficient-followup-choice {
+  background: #f5f1ed;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.proficient-followup-choice .info-text {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 14px;
+  color: #2c2c2c;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #8b3a3a;
+  cursor: pointer;
+}
+
 .competency-slider-section {
   background: #f5f1ed;
   border-radius: 8px;

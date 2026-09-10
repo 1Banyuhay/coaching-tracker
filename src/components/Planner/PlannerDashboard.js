@@ -49,8 +49,8 @@ const PlannerDashboard = () => {
   const handleAcknowledge = async (recordId) => {
     setAcknowledging(recordId);
     try {
-      await acknowledgeCoachingRecord(recordId);
-      toast.success('Coaching acknowledged');
+      const { closedCycle } = await acknowledgeCoachingRecord(recordId);
+      toast.success(closedCycle ? 'Coaching acknowledged - cycle closed' : 'Coaching acknowledged');
       await loadData();
       setActiveCard(null);
     } catch (error) {
