@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService, acknowledgeCoachingRecord, followUpStatus } from '../../services/dashboardService';
+import {
+  dashboardService,
+  acknowledgeCoachingRecord,
+  followUpStatus,
+  countsTowardStats,
+  isAcknowledgeExpired,
+  acknowledgeWindowStatus,
+} from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import toast from 'react-hot-toast';
 import SummaryModal from '../Layout/SummaryModal';
@@ -15,9 +22,12 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
-const statusBadge = (status) => {
-  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
-  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+// A record that ran out its 24-hour acknowledge window stays 'pending' in
+// the database forever - it just displays as Expired instead of Pending.
+const statusBadge = (session) => {
+  if (isAcknowledgeExpired(session)) return <span className="status-badge status-expired">Expired</span>;
+  if (session.status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (session.status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
   return <span className="status-badge status-pending">Pending</span>;
 };
 
@@ -71,12 +81,17 @@ const PlannerDashboard = () => {
 
   const stats = data.stats || {};
   const records = data.records || [];
+  // Excludes expired-unacknowledged sessions - see countsTowardStats.
+  // records itself stays unfiltered so the main history table and the
+  // needAction modal below still show an expired session (flagged), just
+  // not counted.
+  const countedRecords = records.filter(countsTowardStats);
 
   const sessionColumns = [
     { key: 'coach_name', label: 'From' },
     { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
     { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
-    { key: 'status', label: 'Status', render: (row) => statusBadge(row.status) },
+    { key: 'status', label: 'Status', render: (row) => statusBadge(row) },
   ];
 
   const modals = {
@@ -84,7 +99,7 @@ const PlannerDashboard = () => {
       title: 'Coaching Sessions',
       subtitle: 'Every coaching session logged with you, all-time',
       columns: sessionColumns,
-      rows: records,
+      rows: countedRecords,
       emptyMessage: 'No coaching sessions logged yet',
     },
     needAction: {
@@ -95,15 +110,24 @@ const PlannerDashboard = () => {
         {
           key: 'action',
           label: '',
-          render: (row) => (
-            <button
-              className="ack-btn"
-              disabled={acknowledging === row.id}
-              onClick={() => handleAcknowledge(row.id)}
-            >
-              {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
-            </button>
-          ),
+          render: (row) => {
+            const ackWindow = acknowledgeWindowStatus(row);
+            if (ackWindow?.level === 'expired') {
+              return <span className="due-badge due-missed">{ackWindow.label}</span>;
+            }
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {ackWindow && <span className="due-badge due-upcoming">{ackWindow.label}</span>}
+                <button
+                  className="ack-btn"
+                  disabled={acknowledging === row.id}
+                  onClick={() => handleAcknowledge(row.id)}
+                >
+                  {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
+                </button>
+              </div>
+            );
+          },
         },
       ],
       rows: data.needActionSessions || [],
@@ -130,7 +154,7 @@ const PlannerDashboard = () => {
         { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
         { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
       ],
-      rows: records.filter((r) => r.competency_level),
+      rows: countedRecords.filter((r) => r.competency_level),
       emptyMessage: 'No competency ratings recorded yet',
     },
   };
@@ -205,6 +229,7 @@ const PlannerDashboard = () => {
             <tbody>
               {records.map((session) => {
                 const due = followUpStatus(session);
+                const ackWindow = acknowledgeWindowStatus(session);
                 return (
                   <tr key={session.id}>
                     <td><strong>{session.coach_name}</strong></td>
@@ -215,7 +240,10 @@ const PlannerDashboard = () => {
                     </td>
                     <td>{formatDate(session.created_at)}</td>
                     <td>{competencyLabel(session.competency_level)}</td>
-                    <td>{statusBadge(session.status)}</td>
+                    <td>
+                      {statusBadge(session)}
+                      {ackWindow?.level === 'urgent' && <span className="due-badge due-upcoming">{ackWindow.label}</span>}
+                    </td>
                     <td>
                       {session.follow_up_date ? formatDate(session.follow_up_date) : '—'}
                       {due && <span className={`due-badge due-${due.level}`}>{due.label}</span>}

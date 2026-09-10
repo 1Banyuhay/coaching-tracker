@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { dashboardService, categorizePlanners, filterRecordsByPeriod } from '../../services/dashboardService';
+import {
+  dashboardService,
+  categorizePlanners,
+  filterRecordsByPeriod,
+  countsTowardStats,
+  isAcknowledgeExpired,
+} from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
 import SummaryModal from '../Layout/SummaryModal';
@@ -25,9 +31,12 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
-const sessionStatusBadge = (status) => {
-  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
-  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+// A record that ran out its 24-hour acknowledge window stays 'pending' in
+// the database forever - it just displays as Expired instead of Pending.
+const sessionStatusBadge = (session) => {
+  if (isAcknowledgeExpired(session)) return <span className="status-badge status-expired">Expired</span>;
+  if (session.status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (session.status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
   return <span className="status-badge status-pending">Pending</span>;
 };
 
@@ -91,15 +100,21 @@ const SeniorManagerDashboard = () => {
   // the period selector above the metrics grid, recomputed here from the
   // all-time data the service returned. Total Planners (roster count) stays
   // live/current regardless of period - see the discussion notes doc.
+  //
+  // periodRecords/periodManagerRecords stay unfiltered by acknowledge-
+  // window expiry, so an expired session still shows up (flagged) in the
+  // sessions tables below - countedPeriodRecords (expired excluded) is
+  // what every stat/bucket number is built from.
   const periodRecords = filterRecordsByPeriod(data.sessions, dateRange);
+  const countedPeriodRecords = periodRecords.filter(countsTowardStats);
   const sessionRowsOptions = generateRowsOptions(periodRecords.length);
   const periodManagerRecords = filterRecordsByPeriod(data.managerSessions, dateRange);
   const managerSessionRowsOptions = generateRowsOptions(periodManagerRecords.length);
-  const periodBuckets = categorizePlanners(data.roster || [], periodRecords);
+  const periodBuckets = categorizePlanners(data.roster || [], countedPeriodRecords);
   const periodStats = {
     needCoaching: periodBuckets.needCoaching.length,
-    totalSessions: periodRecords.length,
-    acknowledged: periodRecords.filter((r) => r.status !== 'pending').length,
+    totalSessions: countedPeriodRecords.length,
+    acknowledged: countedPeriodRecords.filter((r) => r.status !== 'pending').length,
     completed: periodBuckets.completed.length,
     avgCompetency: periodBuckets.avgCompetency,
     totalPlanners: periodBuckets.totalPlanners,
@@ -132,7 +147,7 @@ const SeniorManagerDashboard = () => {
     { key: 'planner_name', label: 'Planner' },
     { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
     { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
-    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row.status) },
+    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row) },
   ];
 
   const modals = {
@@ -147,14 +162,14 @@ const SeniorManagerDashboard = () => {
       title: 'Coaching Sessions',
       subtitle: `Every coaching session logged with a planner in your branch, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: periodRecords,
+      rows: countedPeriodRecords,
       emptyMessage: 'No coaching sessions logged in this period',
     },
     acknowledged: {
       title: 'Acknowledged',
       subtitle: `Sessions your planners have acted on - acknowledged or completed a full cycle, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: periodRecords.filter((s) => s.status !== 'pending'),
+      rows: countedPeriodRecords.filter((s) => s.status !== 'pending'),
       emptyMessage: 'No sessions acknowledged in this period',
     },
     completed: {
@@ -172,7 +187,7 @@ const SeniorManagerDashboard = () => {
         { key: 'topic', label: 'Topic' },
         { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
       ],
-      rows: periodRecords.filter((r) => r.competency_level),
+      rows: countedPeriodRecords.filter((r) => r.competency_level),
       emptyMessage: 'No competency ratings recorded in this period',
     },
     totalPlanners: {

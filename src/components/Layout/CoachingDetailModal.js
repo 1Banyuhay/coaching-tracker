@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { formatDate } from '../../utils/dateHelpers';
-import { followUpStatus } from '../../services/dashboardService';
+import { followUpStatus, isAcknowledgeExpired } from '../../services/dashboardService';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
 
@@ -11,9 +11,12 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
-const statusInfo = (status) => {
-  if (status === 'coaching_complete') return { cls: 'status-coaching', label: 'Completed' };
-  if (status === 'acknowledged') return { cls: 'status-acknowledged', label: 'Acknowledged' };
+// A record that ran out its 24-hour acknowledge window stays 'pending' in
+// the database forever - it just displays as Expired instead of Pending.
+const statusInfo = (session) => {
+  if (isAcknowledgeExpired(session)) return { cls: 'status-expired', label: 'Expired' };
+  if (session.status === 'coaching_complete') return { cls: 'status-coaching', label: 'Completed' };
+  if (session.status === 'acknowledged') return { cls: 'status-acknowledged', label: 'Acknowledged' };
   return { cls: 'status-pending', label: 'Pending' };
 };
 
@@ -22,7 +25,7 @@ const statusInfo = (status) => {
 const CoachingDetailModal = ({ session, recipientLabel = 'Planner', onClose }) => {
   if (!session) return null;
   const due = followUpStatus(session);
-  const { cls, label } = statusInfo(session.status);
+  const { cls, label } = statusInfo(session);
 
   return (
     <div className="summary-modal-overlay" onClick={onClose}>

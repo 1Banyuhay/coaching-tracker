@@ -121,11 +121,18 @@ export function categorizePlanners(planners, records) {
 export async function acknowledgeCoachingRecord(recordId) {
   const { data: record, error: fetchError } = await supabaseClient
     .from('coaching_records')
-    .select('competency_level, follow_up_date')
+    .select('competency_level, follow_up_date, status, created_at')
     .eq('id', recordId)
     .single();
 
   if (fetchError) throw fetchError;
+
+  // Hard 24-hour deadline, permanent - see isAcknowledgeExpired above. The
+  // UI already hides/disables the Acknowledge action once expired; this is
+  // the server-side guard for a stale screen still showing the button.
+  if (isAcknowledgeExpired(record)) {
+    throw new Error("This session's 24-hour acknowledge window has passed - it can no longer be acknowledged.");
+  }
 
   const closedCycle = record.competency_level === 4 && !record.follow_up_date;
   const nextStatus = closedCycle ? 'coaching_complete' : 'acknowledged';
@@ -205,6 +212,54 @@ export function followUpCounts(sessions) {
     if (status && counts[status.level] !== undefined) counts[status.level] += 1;
   });
   return counts;
+}
+
+// A pending coaching log has exactly this many hours to be acknowledged
+// before it permanently stops counting as a coaching session - see
+// countsTowardStats below. Reinforces that coaching isn't "done" until
+// the recipient has actually engaged with it, not just when it was typed
+// in. No database column for this - it's computed from created_at, the
+// same way coaching_complete already reuses updated_at instead of its own
+// date field.
+export const ACKNOWLEDGE_WINDOW_HOURS = 24;
+
+// Whether a still-pending record has run out its acknowledge window. Once
+// true this is permanent by design - acknowledgeCoachingRecord() below
+// refuses to update a record in this state, and there is no override.
+export function isAcknowledgeExpired(record) {
+  if (record.status !== 'pending') return false;
+  const hoursSinceLogged = (Date.now() - new Date(record.created_at).getTime()) / 3600000;
+  return hoursSinceLogged >= ACKNOWLEDGE_WINDOW_HOURS;
+}
+
+// Countdown/expired badge state for a pending record's acknowledge window -
+// same null-until-it-matters shape as followUpStatus() above, so the UI
+// pattern matches. Returns null for anything not pending (nothing left to
+// count down) or still comfortably within its window.
+//   > 4h left - null      - plenty of time, nothing shown yet
+//   0-4h left - 'urgent'  - about to expire
+//   past due  - 'expired' - permanently excluded from stats now
+export function acknowledgeWindowStatus(record) {
+  if (record.status !== 'pending') return null;
+  const hoursSinceLogged = (Date.now() - new Date(record.created_at).getTime()) / 3600000;
+  const hoursLeft = ACKNOWLEDGE_WINDOW_HOURS - hoursSinceLogged;
+
+  if (hoursLeft <= 0) return { level: 'expired', label: 'Expired - not acknowledged in time' };
+  if (hoursLeft <= 4) return { level: 'urgent', label: `${Math.max(1, Math.ceil(hoursLeft))}h left to acknowledge` };
+  return null;
+}
+
+// Whether a record should count toward coaching stats at all - Coaching
+// Sessions, Acknowledged, the Need Coaching/Completed buckets, competency
+// averages, planner summaries, all of it. A record that expired without
+// acknowledgment never counts as coaching having happened - unacknowledged
+// coaching isn't coaching, per the 24-hour acknowledge window policy. Every
+// other record (acknowledged, completed, or still within its window)
+// counts exactly as it always has. The record itself is never deleted or
+// hidden - it stays visible (flagged Expired) in session lists/history for
+// trend visibility, just excluded from the counted totals.
+export function countsTowardStats(record) {
+  return !isAcknowledgeExpired(record);
 }
 
 // Which date a session should be counted under for the Current/Previous/QTD/YTD period
@@ -346,18 +401,27 @@ export const dashboardService = {
         ...incomingRecords.map((r) => r.coach_id),
       ]);
 
-      const buckets = categorizePlanners(roster, givenRecords);
+      // Records that expired unacknowledged never count as coaching having
+      // happened (see countsTowardStats) - excluded from every stat/bucket
+      // below, but givenRecords/incomingRecords themselves stay
+      // unfiltered further down so expired ones still show up (flagged) in
+      // the sessions table and Need Action list for visibility.
+      const countedGivenRecords = givenRecords.filter(countsTowardStats);
+      const buckets = categorizePlanners(roster, countedGivenRecords);
       const sessionsWithFollowUp = await attachFollowUpInfo(givenRecords);
 
       return {
         stats: {
-          needAction: incomingRecords.length,
+          // Excludes expired-unacknowledged items - Need Action should only
+          // ever show what's still actually actionable right now.
+          needAction: incomingRecords.filter(countsTowardStats).length,
           needCoaching: buckets.needCoaching.length,
           // Session-level counts (separate from the planner-level buckets
           // above) - the goal is for these two to read as the same number
-          // once nothing a planner has been given is still sitting pending.
-          totalSessions: givenRecords.length,
-          acknowledged: givenRecords.filter((r) => r.status !== 'pending').length,
+          // once nothing a planner has been given is still sitting pending
+          // (or has expired unacknowledged).
+          totalSessions: countedGivenRecords.length,
+          acknowledged: countedGivenRecords.filter((r) => r.status !== 'pending').length,
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
@@ -372,7 +436,10 @@ export const dashboardService = {
         roster,
         // All-time per-planner rollup for the Planner Summary tab, which
         // always shows full history regardless of the period selector.
-        plannerSummaries: summarizeByPlanner(roster, givenRecords),
+        // Built from counted records only, same rule as everything else.
+        plannerSummaries: summarizeByPlanner(roster, countedGivenRecords),
+        // Unfiltered - includes expired-unacknowledged records so they
+        // still show up (with an Expired badge) in the sessions table.
         sessions: attachNames(sessionsWithFollowUp, usersById),
         needActionSessions: attachNames(incomingRecords, usersById),
       };
@@ -438,7 +505,10 @@ export const dashboardService = {
         ...scopedRecords.map((r) => r.coach_id),
       ]);
 
-      const buckets = categorizePlanners(planners, scopedRecords);
+      // See the same note in getManagerDashboard above - expired-
+      // unacknowledged records never count as coaching having happened.
+      const countedScopedRecords = scopedRecords.filter(countsTowardStats);
+      const buckets = categorizePlanners(planners, countedScopedRecords);
 
       const plannerSessionsWithFollowUp = await attachFollowUpInfo(scopedRecords);
       const plannerSessions = attachNames(plannerSessionsWithFollowUp, usersById);
@@ -453,7 +523,7 @@ export const dashboardService = {
       const managerSummaries = managers.map((m) => {
         const myPlanners = planners.filter((p) => p.reports_to_id === m.id);
         const myPlannerIds = new Set(myPlanners.map((p) => p.id));
-        const myRecords = scopedRecords.filter((r) => myPlannerIds.has(r.planner_id));
+        const myRecords = countedScopedRecords.filter((r) => myPlannerIds.has(r.planner_id));
         const competencyValues = myRecords
           .map((r) => r.competency_level)
           .filter((v) => typeof v === 'number' && !Number.isNaN(v));
@@ -480,9 +550,10 @@ export const dashboardService = {
           needCoaching: buckets.needCoaching.length,
           // Session-level counts (separate from the planner-level buckets
           // above) - the goal is for these two to read as the same number
-          // once nothing logged in the branch is still sitting pending.
-          totalSessions: scopedRecords.length,
-          acknowledged: scopedRecords.filter((r) => r.status !== 'pending').length,
+          // once nothing logged in the branch is still sitting pending (or
+          // has expired unacknowledged).
+          totalSessions: countedScopedRecords.length,
+          acknowledged: countedScopedRecords.filter((r) => r.status !== 'pending').length,
           completed: buckets.completed.length,
           avgCompetency: buckets.avgCompetency,
           totalPlanners: buckets.totalPlanners,
@@ -497,9 +568,10 @@ export const dashboardService = {
         roster: planners,
         // All-time per-planner rollup for the List of Planners tab, which
         // always shows full history regardless of the period selector.
+        // Built from counted records only, same rule as everything else.
         // usersById resolves each planner's manager name for the Manager
         // column.
-        plannerSummaries: summarizeByPlanner(planners, scopedRecords, usersById),
+        plannerSummaries: summarizeByPlanner(planners, countedScopedRecords, usersById),
         sessions: plannerSessions,
         managerSessions,
       };
@@ -524,15 +596,20 @@ export const dashboardService = {
         .eq('planner_id', userId);
 
       const records = await attachFollowUpInfo(recordsRaw || []);
+      // Unfiltered - kept for needActionSessions/records below so an
+      // expired-unacknowledged session still shows up (flagged) rather
+      // than disappearing. countedRecords is the same list minus those,
+      // used for every stat/average - see countsTowardStats above.
       const needAction = records.filter((r) => r.status === 'pending');
+      const countedRecords = records.filter(countsTowardStats);
       // "Acknowledged" here means "acted on" - anything no longer sitting
       // pending, whether or not it has since gone on to a full completed
       // cycle. This is what lets Coaching Sessions and Acknowledged read
-      // as the same number once nothing is left pending.
+      // as the same number once nothing is left pending or expired.
       const acknowledged = records.filter((r) => r.status !== 'pending');
       const completed = records.filter((r) => r.status === 'coaching_complete');
 
-      const competencyValues = records
+      const competencyValues = countedRecords
         .map((r) => r.competency_level)
         .filter((v) => typeof v === 'number' && !Number.isNaN(v));
       const avgCompetency = competencyValues.length
@@ -543,8 +620,10 @@ export const dashboardService = {
 
       return {
         stats: {
-          needAction: needAction.length,
-          totalSessions: records.length,
+          // Excludes expired-unacknowledged items - Need Action should only
+          // ever show what's still actually actionable right now.
+          needAction: needAction.filter(countsTowardStats).length,
+          totalSessions: countedRecords.length,
           acknowledged: acknowledged.length,
           completed: completed.length,
           avgCompetency,

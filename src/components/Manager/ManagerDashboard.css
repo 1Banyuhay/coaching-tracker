@@ -300,6 +300,7 @@
 .status-pending { background: #fff4d6; color: #b8860b; }
 .status-acknowledged { background: #d4edda; color: #2d5016; }
 .status-coaching { background: #e8f0ff; color: #1850a2; }
+.status-expired { background: #fde2e2; color: #c32626; }
 
 .cta-button {
   background: #8b3a3a;

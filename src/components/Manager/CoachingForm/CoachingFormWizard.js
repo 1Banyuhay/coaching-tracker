@@ -345,6 +345,11 @@ const CoachingFormWizard = () => {
           )}
         </div>
 
+        <div className="deadline-note">
+          The {recipientLabel.toLowerCase()} has 24 hours to acknowledge this session, or it will not
+          count as a coaching session.
+        </div>
+
         <div className="status-bar">
           {isComplete ? '✓ All sections complete - ready to save' : '○ Complete all sections to proceed'}
         </div>

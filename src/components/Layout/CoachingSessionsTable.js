@@ -1,6 +1,11 @@
 import React from 'react';
 import { formatDate } from '../../utils/dateHelpers';
-import { followUpStatus, canLogFollowUp as computeCanLogFollowUp } from '../../services/dashboardService';
+import {
+  followUpStatus,
+  canLogFollowUp as computeCanLogFollowUp,
+  isAcknowledgeExpired,
+  acknowledgeWindowStatus,
+} from '../../services/dashboardService';
 
 const COMPETENCY_LABELS = ['Need Coaching', 'Developing', 'Competent', 'Proficient'];
 
@@ -10,9 +15,14 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
-const statusInfo = (status) => {
-  if (status === 'coaching_complete') return { cls: 'status-coaching', label: 'Completed' };
-  if (status === 'acknowledged') return { cls: 'status-acknowledged', label: 'Acknowledged' };
+// A record that ran out its 24-hour acknowledge window stays 'pending' in
+// the database forever (see isAcknowledgeExpired) - it just stops
+// displaying as "Pending" and shows as "Expired" instead, so it's still
+// visible in history but clearly flagged as not counted.
+const statusInfo = (session) => {
+  if (isAcknowledgeExpired(session)) return { cls: 'status-expired', label: 'Expired' };
+  if (session.status === 'coaching_complete') return { cls: 'status-coaching', label: 'Completed' };
+  if (session.status === 'acknowledged') return { cls: 'status-acknowledged', label: 'Acknowledged' };
   return { cls: 'status-pending', label: 'Pending' };
 };
 
@@ -59,7 +69,8 @@ const CoachingSessionsTable = ({
       <tbody>
         {sessions.map((session) => {
           const due = followUpStatus(session);
-          const { cls, label } = statusInfo(session.status);
+          const { cls, label } = statusInfo(session);
+          const ackWindow = acknowledgeWindowStatus(session);
           const eligibleForFollowUp = !!onLogFollowUp && computeCanLogFollowUp(session);
 
           return (
@@ -79,6 +90,9 @@ const CoachingSessionsTable = ({
               </td>
               <td>
                 <span className={`status-badge ${cls}`}>{label}</span>
+                {ackWindow?.level === 'urgent' && (
+                  <span className="due-badge due-upcoming">{ackWindow.label}</span>
+                )}
               </td>
               {onLogFollowUp && (
                 <td>

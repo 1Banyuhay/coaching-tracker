@@ -5,6 +5,9 @@ import {
   acknowledgeCoachingRecord,
   categorizePlanners,
   filterRecordsByPeriod,
+  countsTowardStats,
+  isAcknowledgeExpired,
+  acknowledgeWindowStatus,
 } from '../../services/dashboardService';
 import { formatDate } from '../../utils/dateHelpers';
 import { useNavigate } from 'react-router-dom';
@@ -31,9 +34,12 @@ const competencyLabel = (level) => {
   return COMPETENCY_LABELS[Math.min(Math.max(rounded, 1), 4) - 1];
 };
 
-const sessionStatusBadge = (status) => {
-  if (status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
-  if (status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
+// A record that ran out its 24-hour acknowledge window stays 'pending' in
+// the database forever - it just displays as Expired instead of Pending.
+const sessionStatusBadge = (session) => {
+  if (isAcknowledgeExpired(session)) return <span className="status-badge status-expired">Expired</span>;
+  if (session.status === 'coaching_complete') return <span className="status-badge status-coaching">Completed</span>;
+  if (session.status === 'acknowledged') return <span className="status-badge status-acknowledged">Acknowledged</span>;
   return <span className="status-badge status-pending">Pending</span>;
 };
 
@@ -109,15 +115,21 @@ const ManagerDashboard = () => {
   // all-time data the service returned, rather than a second round-trip.
   // Need Action and the Total Planners roster count stay live/current
   // regardless of period (see the discussion notes doc).
+  //
+  // periodRecords stays unfiltered by acknowledge-window expiry, so an
+  // expired session still shows up (flagged) in the sessions table below -
+  // countedPeriodRecords (expired ones excluded) is what every stat/bucket
+  // number is built from, matching the service layer's own rule.
   const periodRecords = filterRecordsByPeriod(data.sessions, dateRange);
+  const countedPeriodRecords = periodRecords.filter(countsTowardStats);
   const sessionRowsOptions = generateRowsOptions(periodRecords.length);
   const stats = data.stats || {};
-  const periodBuckets = categorizePlanners(data.roster || [], periodRecords);
+  const periodBuckets = categorizePlanners(data.roster || [], countedPeriodRecords);
   const periodStats = {
     needAction: stats.needAction,
     needCoaching: periodBuckets.needCoaching.length,
-    totalSessions: periodRecords.length,
-    acknowledged: periodRecords.filter((r) => r.status !== 'pending').length,
+    totalSessions: countedPeriodRecords.length,
+    acknowledged: countedPeriodRecords.filter((r) => r.status !== 'pending').length,
     completed: periodBuckets.completed.length,
     avgCompetency: periodBuckets.avgCompetency,
     totalPlanners: periodBuckets.totalPlanners,
@@ -147,13 +159,14 @@ const ManagerDashboard = () => {
     topic: s.topic || 'General',
     date: formatDate(s.created_at),
     status: s.status,
+    ackWindow: acknowledgeWindowStatus(s),
   }));
 
   const sessionListColumns = [
     { key: 'planner_name', label: 'Planner' },
     { key: 'topic', label: 'Topic', render: (row) => row.topic || 'General' },
     { key: 'date', label: 'Date', render: (row) => formatDate(row.created_at) },
-    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row.status) },
+    { key: 'status', label: 'Status', render: (row) => sessionStatusBadge(row) },
   ];
 
   const modals = {
@@ -167,15 +180,21 @@ const ManagerDashboard = () => {
         {
           key: 'action',
           label: '',
-          render: (row) => (
-            <button
-              className="ack-btn"
-              disabled={acknowledging === row.id}
-              onClick={() => handleAcknowledge(row.id)}
-            >
-              {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
-            </button>
-          ),
+          render: (row) =>
+            row.ackWindow?.level === 'expired' ? (
+              <span className="due-badge due-missed">{row.ackWindow.label}</span>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {row.ackWindow && <span className="due-badge due-upcoming">{row.ackWindow.label}</span>}
+                <button
+                  className="ack-btn"
+                  disabled={acknowledging === row.id}
+                  onClick={() => handleAcknowledge(row.id)}
+                >
+                  {acknowledging === row.id ? 'Saving...' : 'Acknowledge'}
+                </button>
+              </div>
+            ),
         },
       ],
       rows: needActionRows,
@@ -192,14 +211,14 @@ const ManagerDashboard = () => {
       title: 'Coaching Sessions',
       subtitle: `Every coaching session you have logged with a planner, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: periodRecords,
+      rows: countedPeriodRecords,
       emptyMessage: 'No coaching sessions logged in this period',
     },
     acknowledged: {
       title: 'Acknowledged',
       subtitle: `Sessions your planners have acted on - acknowledged or completed a full cycle, ${PERIOD_DESCRIPTIONS[dateRange]}`,
       columns: sessionListColumns,
-      rows: periodRecords.filter((s) => s.status !== 'pending'),
+      rows: countedPeriodRecords.filter((s) => s.status !== 'pending'),
       emptyMessage: 'No sessions acknowledged in this period',
     },
     completed: {
@@ -217,7 +236,7 @@ const ManagerDashboard = () => {
         { key: 'topic', label: 'Topic' },
         { key: 'level', label: 'Level', render: (row) => competencyLabel(row.competency_level) },
       ],
-      rows: periodRecords.filter((s) => s.competency_level),
+      rows: countedPeriodRecords.filter((s) => s.competency_level),
       emptyMessage: 'No competency ratings recorded in this period',
     },
     totalPlanners: {

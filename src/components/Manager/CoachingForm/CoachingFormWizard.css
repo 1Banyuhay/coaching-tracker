@@ -229,3 +229,13 @@ input[type='range']::-moz-range-thumb {
 .btn-secondary:hover:not(:disabled) { background: #f5f1ed; }
 
 .no-data { text-align: center; padding: 1.5rem; color: #999; font-size: 13px; }
+
+.deadline-note {
+  background: #fff4d6;
+  color: #6b4423;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
