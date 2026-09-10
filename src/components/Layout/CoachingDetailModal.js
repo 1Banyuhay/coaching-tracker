@@ -67,7 +67,7 @@ const CoachingDetailModal = ({ session, recipientLabel = 'Planner', onClose }) =
           </div>
 
           <div className="detail-block">
-            <div className="detail-label">Discussion Notes</div>
+            <div className="detail-label">Discussion Notes / Root Cause Analysis (RCA)</div>
             <p className="detail-text">{session.discussion_notes || '—'}</p>
           </div>
 

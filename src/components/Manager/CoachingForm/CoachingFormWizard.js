@@ -263,7 +263,7 @@ const CoachingFormWizard = () => {
         <div className="log-section">
           <div className="section-header">
             <div className="section-number">4</div>
-            <div className="section-title">Discussion Notes</div>
+            <div className="section-title">Discussion Notes / Root Cause Analysis (RCA)</div>
           </div>
           <textarea
             className="form-control"
