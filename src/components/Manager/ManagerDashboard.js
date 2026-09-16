@@ -122,6 +122,11 @@ const ManagerDashboard = () => {
   // countedPeriodRecords (expired ones excluded) is what every stat/bucket
   // number is built from, matching the service layer's own rule.
   const periodRecords = filterRecordsByPeriod(data.sessions, dateRange);
+  // Same period filter applied to the reverse direction - sessions your
+  // Senior Manager logged for YOU - for the "Coaching Sessions With Senior
+  // Manager" reference table below. Unfiltered by expiry, same as
+  // periodRecords, so an expired one still shows (flagged) for the record.
+  const incomingPeriodRecords = filterRecordsByPeriod(data.incomingSessions, dateRange);
   const countedPeriodRecords = periodRecords.filter(countsTowardStats);
   const sessionRowsOptions = generateRowsOptions(periodRecords.length);
   const stats = data.stats || {};
@@ -263,7 +268,7 @@ const ManagerDashboard = () => {
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
-      <AcknowledgeBanner sessions={data.needActionSessions} />
+      <AcknowledgeBanner sessions={data.needActionSessions} onClick={() => setActiveCard('needAction')} />
       <FollowUpBanner sessions={data.sessions} />
 
       <div className="dashboard-tabs">
@@ -360,6 +365,18 @@ const ManagerDashboard = () => {
               : 'in your team'}
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">COACHING SESSIONS WITH SENIOR MANAGER</h2>
+
+        <CoachingSessionsTable
+          sessions={incomingPeriodRecords}
+          recipientLabel="Senior Manager"
+          primaryField="coach_name"
+          onSelectTopic={setDetailSession}
+          emptyMessage={`No coaching sessions from your Senior Manager, ${PERIOD_DESCRIPTIONS[dateRange]}`}
+        />
       </div>
 
       <div className="card">

@@ -40,9 +40,15 @@ const statusInfo = (session) => {
 //   the recipient) showing who coached that session (session.coach_name).
 //   Used on the Senior Manager's "Coaching Sessions with Planners" table,
 //   where the coach could be any of several Managers, not just one person.
+// `primaryField`: optional - which field populates the first column, under
+//   `recipientLabel`. Defaults to 'planner_name'. Pass 'coach_name' for a
+//   table where the viewer IS the planner (e.g. a Manager's "Coaching
+//   Sessions With Senior Manager") so the first column shows who coached
+//   them instead of repeating their own name on every row.
 const CoachingSessionsTable = ({
   sessions,
   recipientLabel = 'Planner',
+  primaryField = 'planner_name',
   onSelectTopic,
   onLogFollowUp,
   emptyMessage,
@@ -75,7 +81,7 @@ const CoachingSessionsTable = ({
 
           return (
             <tr key={session.id}>
-              <td><strong>{session.planner_name}</strong></td>
+              <td><strong>{session[primaryField]}</strong></td>
               {coachColumnLabel && <td>{session.coach_name || '—'}</td>}
               <td>
                 <button type="button" className="topic-link" onClick={() => onSelectTopic(session)}>

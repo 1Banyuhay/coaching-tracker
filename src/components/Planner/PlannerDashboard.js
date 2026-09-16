@@ -170,7 +170,7 @@ const PlannerDashboard = () => {
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
-      <AcknowledgeBanner sessions={data.needActionSessions} />
+      <AcknowledgeBanner sessions={data.needActionSessions} onClick={() => setActiveCard('needAction')} />
 
       <div className="metrics-grid">
         <div className={`metric-card ${stats.needAction > 0 ? 'metric-alert' : ''}`}>

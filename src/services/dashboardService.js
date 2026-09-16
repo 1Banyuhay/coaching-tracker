@@ -404,13 +404,18 @@ export const dashboardService = {
 
       const givenRecords = givenRecordsRaw || [];
 
+      // All-time, every status - not just pending. Powers both the Need
+      // Action list (pending subset, below) and the "Coaching Sessions
+      // With Senior Manager" reference table, which - like its "With
+      // Planners" counterpart - shows the full history, not just what's
+      // still actionable.
       const { data: incomingRaw } = await supabaseClient
         .from('coaching_records')
         .select('*')
-        .eq('planner_id', userId)
-        .eq('status', 'pending');
+        .eq('planner_id', userId);
 
       const incomingRecords = incomingRaw || [];
+      const pendingIncoming = incomingRecords.filter((r) => r.status === 'pending');
 
       const usersById = await getUsersByIds([
         ...rosterIds,
@@ -430,7 +435,7 @@ export const dashboardService = {
         stats: {
           // Excludes expired-unacknowledged items - Need Action should only
           // ever show what's still actually actionable right now.
-          needAction: incomingRecords.filter(countsTowardStats).length,
+          needAction: pendingIncoming.filter(countsTowardStats).length,
           needCoaching: buckets.needCoaching.length,
           // Session-level counts (separate from the planner-level buckets
           // above) - the goal is for these two to read as the same number
@@ -457,7 +462,14 @@ export const dashboardService = {
         // Unfiltered - includes expired-unacknowledged records so they
         // still show up (with an Expired badge) in the sessions table.
         sessions: attachNames(sessionsWithFollowUp, usersById),
-        needActionSessions: attachNames(incomingRecords, usersById),
+        // Pending only, unfiltered by expiry - the Need Action list should
+        // show everything still waiting (including ones that just expired,
+        // so it's obvious why they dropped off the actionable count above).
+        needActionSessions: attachNames(pendingIncoming, usersById),
+        // All-time, every status - backs the new "Coaching Sessions With
+        // Senior Manager" table, same shape as `sessions` above but for
+        // records where this manager is the recipient, not the coach.
+        incomingSessions: attachNames(incomingRecords, usersById),
       };
     } catch (error) {
       console.error('Error fetching manager dashboard:', error);
@@ -466,6 +478,7 @@ export const dashboardService = {
         buckets: { needCoaching: [], acknowledged: [], completed: [] },
         sessions: [],
         needActionSessions: [],
+        incomingSessions: [],
       };
     }
   },
