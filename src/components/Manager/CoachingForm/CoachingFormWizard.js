@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { userService } from '../../../services/userService';
-import { dashboardService } from '../../../services/dashboardService';
+import { logFollowUp } from '../../../services/dashboardService';
 import { topicsService } from '../../../services/topicsService';
 import { supabaseClient } from '../../../config/supabase';
 import toast from 'react-hot-toast';
@@ -141,7 +141,11 @@ const CoachingFormWizard = () => {
       };
 
       if (followUpFrom) {
-        await dashboardService.logFollowUp(followUpFrom, fields);
+        // logFollowUp is a standalone named export, not a method on the
+        // dashboardService object below - calling it as
+        // `dashboardService.logFollowUp(...)` is undefined and throws,
+        // which is exactly what was breaking every follow-up submission.
+        await logFollowUp(followUpFrom, fields);
         toast.success('Follow-up logged - the original session is now marked complete.');
       } else {
         const { error } = await supabaseClient.from('coaching_records').insert({

@@ -153,19 +153,43 @@ export async function acknowledgeCoachingRecord(recordId) {
 // follow-up and it counted" path. Whether it happened on or before the
 // original follow_up_date is purely a UI badge (see followUpStatus below);
 // logging late still completes the cycle, it just won't have been on time.
+//
+// These are two separate network round-trips, not one atomic transaction -
+// if the second (closing out the original) fails after the first (saving
+// the follow-up) already succeeded, we'd otherwise leave a real follow-up
+// row sitting in the database while the coach was told "Failed to save
+// coaching session" and has no idea it actually went through. That's worse
+// than a clean failure: they might re-submit and end up with two follow-up
+// records, or trust the error and never realize the session was logged.
+// So on that specific failure we compensate by deleting the just-inserted
+// row, putting the data back the way the error message claims it is -
+// nothing saved, safe to retry - instead of leaving a partial write behind.
 export async function logFollowUp(originalRecord, newRecordFields) {
-  const { error: insertError } = await supabaseClient.from('coaching_records').insert({
-    ...newRecordFields,
-    follow_up_of_id: originalRecord.id,
-    status: 'pending',
-  });
+  const { data: inserted, error: insertError } = await supabaseClient
+    .from('coaching_records')
+    .insert({
+      ...newRecordFields,
+      follow_up_of_id: originalRecord.id,
+      status: 'pending',
+    })
+    .select()
+    .single();
   if (insertError) throw insertError;
 
   const { error: updateError } = await supabaseClient
     .from('coaching_records')
     .update({ status: 'coaching_complete', updated_at: new Date().toISOString() })
     .eq('id', originalRecord.id);
-  if (updateError) throw updateError;
+
+  if (updateError) {
+    // Best-effort rollback - if this delete also fails (e.g. the same
+    // network blip that broke the update above), the follow-up row is
+    // orphaned rather than silently accepted, so it still surfaces as an
+    // error rather than a false success. We deliberately don't swallow
+    // updateError either way.
+    await supabaseClient.from('coaching_records').delete().eq('id', inserted.id);
+    throw updateError;
+  }
 }
 
 // Due-date badge state for a record's follow_up_date. Returns null when
