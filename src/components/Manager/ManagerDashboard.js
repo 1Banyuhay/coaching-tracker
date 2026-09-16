@@ -17,6 +17,7 @@ import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import PlannerCoachingModal from '../Layout/PlannerCoachingModal';
 import FollowUpBanner from '../Layout/FollowUpBanner';
+import AcknowledgeBanner from '../Layout/AcknowledgeBanner';
 import './ManagerDashboard.css';
 
 const PERIOD_DESCRIPTIONS = {
@@ -262,6 +263,7 @@ const ManagerDashboard = () => {
         <div className="header-date">{formatHeaderDate()}</div>
       </div>
 
+      <AcknowledgeBanner sessions={data.needActionSessions} />
       <FollowUpBanner sessions={data.sessions} />
 
       <div className="dashboard-tabs">
