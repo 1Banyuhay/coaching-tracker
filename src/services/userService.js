@@ -5,7 +5,7 @@ import { hashPassword } from '../utils/passwordHash';
 // password off a screen (no 0/O, no 1/I/l).
 const TEMP_PASSWORD_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
 
-function generateTempPassword(length = 10) {
+export function generateTempPassword(length = 10) {
   let out = '';
   for (let i = 0; i < length; i++) {
     out += TEMP_PASSWORD_CHARS[Math.floor(Math.random() * TEMP_PASSWORD_CHARS.length)];

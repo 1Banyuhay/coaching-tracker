@@ -14,6 +14,9 @@ import CoachingSessionsTable from '../Layout/CoachingSessionsTable';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import PlannerCoachingModal from '../Layout/PlannerCoachingModal';
 import FollowUpBanner from '../Layout/FollowUpBanner';
+import PlannerRequestBanner from '../Layout/PlannerRequestBanner';
+import { userService } from '../../services/userService';
+import { plannerRequestService } from '../../services/plannerRequestService';
 import './ManagerDashboard.css';
 
 const PERIOD_DESCRIPTIONS = {
@@ -53,6 +56,7 @@ const SeniorManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedManagerId, setSelectedManagerId] = useState('');
   const [selectedPlanner, setSelectedPlanner] = useState(null);
+  const [pendingPlannerRequests, setPendingPlannerRequests] = useState([]);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -61,9 +65,20 @@ const SeniorManagerDashboard = () => {
     setLoading(false);
   }, [user?.id]);
 
+  // Powers the "Add Planner" request banner below - pending requests from
+  // every Manager reporting to this Senior Manager, same source Manage
+  // Team's review panel reads from.
+  const loadPendingPlannerRequests = useCallback(async () => {
+    if (!user?.id) return;
+    const managers = await userService.getManagersForSeniorManager(user.id);
+    const list = await plannerRequestService.getPendingRequestsForManagers(managers.map((m) => m.id));
+    setPendingPlannerRequests(list);
+  }, [user?.id]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadPendingPlannerRequests();
+  }, [loadData, loadPendingPlannerRequests]);
 
 
   const generateRowsOptions = (maxRows) => {
@@ -214,6 +229,7 @@ const SeniorManagerDashboard = () => {
       </div>
 
       <FollowUpBanner sessions={[...(data.sessions || []), ...(data.managerSessions || [])]} />
+      <PlannerRequestBanner requests={pendingPlannerRequests} onClick={() => navigate('/senior-manager/team')} />
 
       <div className="dashboard-tabs">
         <button

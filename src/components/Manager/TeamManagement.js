@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
+import { plannerRequestService } from '../../services/plannerRequestService';
 import toast from 'react-hot-toast';
 import './ManagerDashboard.css';
 import './TeamManagement.css';
@@ -33,6 +34,14 @@ const TeamManagement = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [applyingChanges, setApplyingChanges] = useState(false);
 
+  // "Add Planner" requests submitted by Managers reporting to this Senior
+  // Manager, still waiting on a confirm/reject - see plannerRequestService.js.
+  // Admin doesn't see this panel: the request flow is specifically a
+  // Manager-to-their-Senior-Manager handoff, mirroring how "+ Add
+  // Planner" below is already Senior-Manager-only wording.
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState(null);
+
   const isAdmin = user?.role === 'admin';
 
   const loadUsers = useCallback(async () => {
@@ -51,9 +60,21 @@ const TeamManagement = () => {
     }
   }, [isAdmin, user?.id]);
 
+  const loadPendingRequests = useCallback(async () => {
+    if (!user?.id || isAdmin) return;
+    try {
+      const managers = await userService.getManagersForSeniorManager(user.id);
+      const list = await plannerRequestService.getPendingRequestsForManagers(managers.map((m) => m.id));
+      setPendingRequests(list);
+    } catch (error) {
+      console.error('Error loading planner requests:', error);
+    }
+  }, [isAdmin, user?.id]);
+
   useEffect(() => {
     loadUsers();
-  }, [loadUsers]);
+    loadPendingRequests();
+  }, [loadUsers, loadPendingRequests]);
 
   const managers = users.filter((u) => u.role === 'manager');
   const seniorManagers = users.filter((u) => u.role === 'senior_manager');
@@ -294,6 +315,37 @@ const TeamManagement = () => {
     }
   };
 
+  const handleConfirmRequest = async (request) => {
+    setResolvingRequestId(request.id);
+    try {
+      await plannerRequestService.confirmRequest(request, user.id);
+      toast.success(`${request.full_name} added - their manager will see the temporary password on their My Planners page.`);
+      loadPendingRequests();
+      loadUsers();
+    } catch (error) {
+      console.error('Error confirming planner request:', error);
+      toast.error(error.message || 'Failed to confirm request');
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
+
+  const handleRejectRequest = async (request) => {
+    const reason = window.prompt(`Reject the request for ${request.full_name}? Optionally add a reason the manager will see:`, '');
+    if (reason === null) return; // cancelled
+    setResolvingRequestId(request.id);
+    try {
+      await plannerRequestService.rejectRequest(request.id, user.id, reason.trim() || null);
+      toast.success('Request rejected');
+      loadPendingRequests();
+    } catch (error) {
+      console.error('Error rejecting planner request:', error);
+      toast.error('Failed to reject request');
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
@@ -307,6 +359,41 @@ const TeamManagement = () => {
         </div>
         <div className="header-date">{users.length} user{users.length !== 1 ? 's' : ''} in your {isAdmin ? 'organization' : 'branch'}</div>
       </div>
+
+      {!isAdmin && pendingRequests.length > 0 && (
+        <div className="card" id="planner-requests">
+          <h2 className="section-title">ADD PLANNER REQUESTS</h2>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Requested By</th>
+                <th>Full Name</th>
+                <th>Username</th>
+                <th>Requested</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingRequests.map((r) => (
+                <tr key={r.id}>
+                  <td>{usersById.get(r.requested_by)?.full_name || 'Unknown Manager'}</td>
+                  <td><strong>{r.full_name}</strong></td>
+                  <td>{r.username}</td>
+                  <td>{new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                  <td className="team-actions">
+                    <button className="action-btn" disabled={resolvingRequestId === r.id} onClick={() => handleConfirmRequest(r)}>
+                      Confirm
+                    </button>
+                    <button className="action-btn action-btn-danger" disabled={resolvingRequestId === r.id} onClick={() => handleRejectRequest(r)}>
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
