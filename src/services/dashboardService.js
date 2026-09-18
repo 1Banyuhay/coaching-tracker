@@ -226,6 +226,32 @@ export function canLogFollowUp(record) {
   return followUpStatus(record)?.level === 'ready';
 }
 
+// Whether the coach who logged this session can still change its
+// Follow-Up Date. Anytime the date is still open - not yet logged
+// against, not yet closed out - EXCEPT once it's gone Missed: that's the
+// same "permanent once past due" rule canLogFollowUp already enforces for
+// actually logging the follow-up (see followUpStatus above), so editing
+// the date can't be used to quietly undo a miss after the fact.
+export function canEditFollowUpDate(record) {
+  if (!record.follow_up_date || record.has_follow_up || record.status === 'coaching_complete') {
+    return false;
+  }
+  return followUpStatus(record)?.level !== 'missed';
+}
+
+// Changes an already-set Follow-Up Date - see canEditFollowUpDate above
+// for when this is allowed. The caller is responsible for only offering
+// this to the coach who logged the session and for clamping the new date
+// to today..+15 days, same as when it was first set on the coaching log
+// form - this just writes whatever date it's given.
+export async function updateFollowUpDate(recordId, newDate) {
+  const { error } = await supabaseClient
+    .from('coaching_records')
+    .update({ follow_up_date: newDate })
+    .eq('id', recordId);
+  if (error) throw error;
+}
+
 // Tallies how many sessions in a list are 'upcoming' / 'ready' / 'missed'
 // right now - powers the "N follow-ups due" banner on the Manager and
 // Senior Manager dashboards.

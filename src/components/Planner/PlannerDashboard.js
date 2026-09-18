@@ -273,7 +273,7 @@ const PlannerDashboard = () => {
       )}
 
       {detailSession && (
-        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} />
+        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} onFollowUpDateUpdated={loadData} />
       )}
     </div>
   );

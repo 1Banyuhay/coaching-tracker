@@ -475,6 +475,7 @@ const SeniorManagerDashboard = () => {
           session={detailSession}
           recipientLabel={data.managerSessions?.some((s) => s.id === detailSession.id) ? 'Manager' : 'Planner'}
           onClose={() => setDetailSession(null)}
+          onFollowUpDateUpdated={loadData}
         />
       )}
     </div>

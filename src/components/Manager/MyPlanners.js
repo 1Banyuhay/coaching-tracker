@@ -250,7 +250,7 @@ const MyPlanners = () => {
       )}
 
       {detailSession && (
-        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} />
+        <CoachingDetailModal session={detailSession} recipientLabel="Planner" onClose={() => setDetailSession(null)} onFollowUpDateUpdated={loadData} />
       )}
 
       {showAddForm && (
