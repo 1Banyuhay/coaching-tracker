@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
 import { plannerRequestService } from '../../services/plannerRequestService';
+import { userService } from '../../services/userService';
 import CoachingDetailModal from '../Layout/CoachingDetailModal';
 import PlannerCoachingModal from '../Layout/PlannerCoachingModal';
 import toast from 'react-hot-toast';
@@ -25,6 +26,16 @@ const requestStatusBadge = (request) => {
 };
 
 const emptyForm = { fullName: '', username: '' };
+
+// Fixed set - not editable from the UI. A quick relabel or a 5th category
+// is a follow-up code change, not a settings screen, by explicit choice
+// (keeps this simple - see project discussion notes).
+const PLANNER_CATEGORIES = [
+  'Core Leaders',
+  'Full-Time Planners',
+  'Part-Time Planners L1',
+  'Part-Time Planners L2',
+];
 
 // Manager's "My Planners" sidebar page: everyone on this Manager's roster,
 // by name - click one to see their full coaching history, and click a
@@ -54,6 +65,8 @@ const MyPlanners = () => {
   const [submitting, setSubmitting] = useState(false);
   const [revealedPassword, setRevealedPassword] = useState(null); // { requestId, name, username, tempPassword }
   const [acknowledging, setAcknowledging] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [savingCategoryId, setSavingCategoryId] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
@@ -141,6 +154,19 @@ const MyPlanners = () => {
     }
   };
 
+  const handleCategoryChange = async (planner, newCategory) => {
+    setSavingCategoryId(planner.id);
+    try {
+      await userService.updatePlannerCategory(planner.id, newCategory);
+      await loadData();
+    } catch (error) {
+      console.error('Error updating planner category:', error);
+      toast.error('Failed to update category');
+    } finally {
+      setSavingCategoryId(null);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
@@ -155,6 +181,16 @@ const MyPlanners = () => {
   ].sort((a, b) => a.full_name.localeCompare(b.full_name));
 
   const sessionsFor = (plannerId) => sessions.filter((s) => s.planner_id === plannerId);
+
+  // 'all' / 'unlabeled' / one of PLANNER_CATEGORIES - filters which rows
+  // show in the table below without touching the buckets/stats above,
+  // which stay based on the full roster regardless of this filter.
+  const visiblePlanners =
+    categoryFilter === 'all'
+      ? planners
+      : categoryFilter === 'unlabeled'
+      ? planners.filter((p) => !p.planner_category)
+      : planners.filter((p) => p.planner_category === categoryFilter);
 
   return (
     <div className="manager-dashboard">
@@ -174,20 +210,55 @@ const MyPlanners = () => {
           </button>
         </div>
 
+        {planners.length > 0 && (
+          <div className="dashboard-tabs" style={{ flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`dashboard-tab ${categoryFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setCategoryFilter('all')}
+            >
+              All ({planners.length})
+            </button>
+            {PLANNER_CATEGORIES.map((cat) => {
+              const count = planners.filter((p) => p.planner_category === cat).length;
+              return (
+                <button
+                  type="button"
+                  key={cat}
+                  className={`dashboard-tab ${categoryFilter === cat ? 'active' : ''}`}
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {cat} ({count})
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className={`dashboard-tab ${categoryFilter === 'unlabeled' ? 'active' : ''}`}
+              onClick={() => setCategoryFilter('unlabeled')}
+            >
+              Unlabeled ({planners.filter((p) => !p.planner_category).length})
+            </button>
+          </div>
+        )}
+
         {planners.length === 0 ? (
           <div className="no-data">No planners reporting to you yet</div>
+        ) : visiblePlanners.length === 0 ? (
+          <div className="no-data">No planners in this category yet</div>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
                 <th>Planner</th>
                 <th>Branch</th>
+                <th>Category</th>
                 <th>Sessions</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {planners.map((planner) => (
+              {visiblePlanners.map((planner) => (
                 <tr key={planner.id}>
                   <td>
                     <button
@@ -199,6 +270,19 @@ const MyPlanners = () => {
                     </button>
                   </td>
                   <td>{planner.branch || '—'}</td>
+                  <td>
+                    <select
+                      className="filter-select"
+                      value={planner.planner_category || ''}
+                      onChange={(e) => handleCategoryChange(planner, e.target.value)}
+                      disabled={savingCategoryId === planner.id}
+                    >
+                      <option value="">Unlabeled</option>
+                      {PLANNER_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td>{sessionsFor(planner.id).length}</td>
                   <td>{statusBadge(planner.status)}</td>
                 </tr>

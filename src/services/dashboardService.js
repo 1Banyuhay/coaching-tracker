@@ -440,7 +440,7 @@ export const dashboardService = {
       // though their past coaching history stays intact in the database.
       const { data: rosterRaw } = await supabaseClient
         .from('coaching_users')
-        .select('id, full_name, role, branch')
+        .select('id, full_name, role, branch, planner_category')
         .eq('role', 'planner')
         .eq('status', 'active')
         .eq('reports_to_id', userId);

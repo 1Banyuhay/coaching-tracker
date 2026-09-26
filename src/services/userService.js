@@ -209,6 +209,21 @@ export const userService = {
     if (error) throw error;
   },
 
+  // Lets a planner's own Manager label them for easier coaching planning -
+  // one of the 4 fixed categories shown on My Planners (Core Leaders /
+  // Full-Time Planners / Part-Time Planners L1 / Part-Time Planners L2),
+  // or cleared back to unlabeled. Purely descriptive - doesn't affect
+  // roster membership, stats, or anything else the rest of the app
+  // computes from coaching_users.
+  async updatePlannerCategory(userId, category) {
+    const { error } = await supabaseClient
+      .from('coaching_users')
+      .update({ planner_category: category || null })
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
   // Changes an existing person's role - the "promote a planner to manager"
   // (or move a manager back to planner) case that comes up on real
   // promotions, without having to delete and recreate the account and lose
