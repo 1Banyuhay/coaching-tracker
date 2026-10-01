@@ -78,6 +78,13 @@ const TeamManagement = () => {
 
   const managers = users.filter((u) => u.role === 'manager');
   const seniorManagers = users.filter((u) => u.role === 'senior_manager');
+  // Who a planner can be assigned to report straight to, with no Manager
+  // in between (e.g. the "Minokawa Direct" group - a real pattern this
+  // org already uses). Admin can point a planner at any Senior Manager;
+  // a Senior Manager viewing their own branch can only point a planner at
+  // themselves - getBranchTeam() never returns their own row, so `users`
+  // never has them, and they're added in here instead.
+  const seniorManagerOptions = isAdmin ? seniorManagers : user ? [user] : [];
   const usersById = new Map(users.map((u) => [u.id, u]));
   // So a manager row's "reports to" can resolve to the viewing Senior
   // Manager's own name even though they don't appear as a row themselves.
@@ -433,9 +440,20 @@ const TeamManagement = () => {
                       disabled={busyUserId === u.id}
                     >
                       <option value="">Unassigned</option>
-                      {managers.map((m) => (
-                        <option key={m.id} value={m.id}>{m.full_name}</option>
-                      ))}
+                      {managers.length > 0 && (
+                        <optgroup label="Managers">
+                          {managers.map((m) => (
+                            <option key={m.id} value={m.id}>{m.full_name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {seniorManagerOptions.length > 0 && (
+                        <optgroup label="Senior Managers (direct)">
+                          {seniorManagerOptions.map((sm) => (
+                            <option key={sm.id} value={sm.id}>{sm.full_name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   ) : u.role === 'manager' && isAdmin ? (
                     <select
@@ -543,9 +561,20 @@ const TeamManagement = () => {
                   <label className="field-label">Manager</label>
                   <select className="form-control" value={form.reportsToId} onChange={(e) => setForm({ ...form, reportsToId: e.target.value })}>
                     <option value="">Unassigned</option>
-                    {managers.map((m) => (
-                      <option key={m.id} value={m.id}>{m.full_name}</option>
-                    ))}
+                    {managers.length > 0 && (
+                      <optgroup label="Managers">
+                        {managers.map((m) => (
+                          <option key={m.id} value={m.id}>{m.full_name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {seniorManagerOptions.length > 0 && (
+                      <optgroup label="Senior Managers (direct)">
+                        {seniorManagerOptions.map((sm) => (
+                          <option key={sm.id} value={sm.id}>{sm.full_name}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </>
               )}

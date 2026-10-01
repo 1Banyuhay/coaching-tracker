@@ -542,14 +542,19 @@ export const dashboardService = {
 
       // Only active planners count toward the branch roster/stats - see
       // the same note in getManagerDashboard above.
-      const { data: plannersRaw } = managerIds.length
-        ? await supabaseClient
-            .from('coaching_users')
-            .select('id, full_name, role, branch, reports_to_id')
-            .eq('role', 'planner')
-            .eq('status', 'active')
-            .in('reports_to_id', managerIds)
-        : { data: [] };
+      // A planner can also report straight to the Senior Manager, with no
+      // Manager in between (e.g. the "Minokawa Direct" group) - always
+      // include the Senior Manager's own id so those planners count
+      // toward the branch roster/stats too, not just the two-hops-down
+      // ones. Never skip the query just because managerIds is empty - a
+      // brand new branch with no Managers yet could still have direct
+      // reports.
+      const { data: plannersRaw } = await supabaseClient
+        .from('coaching_users')
+        .select('id, full_name, role, branch, reports_to_id')
+        .eq('role', 'planner')
+        .eq('status', 'active')
+        .in('reports_to_id', [...managerIds, userId]);
 
       const planners = plannersRaw || [];
       const plannerIds = planners.map((p) => p.id);

@@ -83,14 +83,19 @@ export const userService = {
   async getPlannersForSeniorManager(seniorManagerId) {
     const managers = await this.getManagersForSeniorManager(seniorManagerId);
     const managerIds = managers.map((m) => m.id);
-    if (managerIds.length === 0) return [];
 
+    // A planner can also report straight to the Senior Manager, with no
+    // Manager in between (e.g. the "Minokawa Direct" group) - always
+    // include the Senior Manager's own id alongside their Managers' so
+    // those planners show up here too, not just the two-hops-down ones.
+    // Never skip the query just because managerIds is empty - a brand
+    // new branch with no Managers yet could still have direct reports.
     const { data, error } = await supabaseClient
       .from('coaching_users')
       .select('id, username, full_name, role, branch, status, reports_to_id')
       .eq('role', 'planner')
       .eq('status', 'active')
-      .in('reports_to_id', managerIds);
+      .in('reports_to_id', [...managerIds, seniorManagerId]);
 
     if (error) throw error;
     return data || [];
@@ -111,17 +116,18 @@ export const userService = {
     const managers = managersRaw || [];
     const managerIds = managers.map((m) => m.id);
 
-    let planners = [];
-    if (managerIds.length > 0) {
-      const { data, error } = await supabaseClient
-        .from('coaching_users')
-        .select('id, username, full_name, role, branch, status, reports_to_id, password_reset_required, created_at')
-        .eq('role', 'planner')
-        .in('reports_to_id', managerIds);
+    // A planner can also report straight to the Senior Manager, with no
+    // Manager in between (e.g. the "Minokawa Direct" group) - always
+    // include the Senior Manager's own id so those planners show up on
+    // Manage Team too, not just the two-hops-down ones.
+    const { data: plannersRaw, error: plannersError } = await supabaseClient
+      .from('coaching_users')
+      .select('id, username, full_name, role, branch, status, reports_to_id, password_reset_required, created_at')
+      .eq('role', 'planner')
+      .in('reports_to_id', [...managerIds, seniorManagerId]);
 
-      if (error) throw error;
-      planners = data || [];
-    }
+    if (plannersError) throw plannersError;
+    const planners = plannersRaw || [];
 
     return [...managers, ...planners].sort((a, b) => {
       if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
