@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Search, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { termsService } from '../../services/termsService';
 import toast from 'react-hot-toast';
@@ -50,6 +51,10 @@ const TerminologiesPage = () => {
   const [busyId, setBusyId] = useState(null);
   const [openCategories, setOpenCategories] = useState(() => new Set());
   const [openTermId, setOpenTermId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchWrapRef = useRef(null);
 
   const loadTerms = useCallback(async () => {
     try {
@@ -91,6 +96,67 @@ const TerminologiesPage = () => {
     () => [...new Set(terms.map((t) => t.category).filter(Boolean))].sort(),
     [terms]
   );
+
+  // Typeahead suggestions by term name only - prefix matches first (what
+  // you'd expect typing the start of a word), then anywhere-in-the-name
+  // matches, each group alphabetical. Capped at 8 so the dropdown never
+  // grows past a glance.
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const starts = [];
+    const contains = [];
+    visibleTerms.forEach((t) => {
+      const name = t.term.toLowerCase();
+      if (name.startsWith(q)) starts.push(t);
+      else if (name.includes(q)) contains.push(t);
+    });
+    const byName = (a, b) => a.term.localeCompare(b.term);
+    return [...starts.sort(byName), ...contains.sort(byName)].slice(0, 8);
+  }, [searchQuery, visibleTerms]);
+
+  // Picking a suggestion (click or Enter) jumps straight to that term:
+  // expand its category, open it, scroll it into view - same as clicking
+  // it directly in the accordion, just without having to find it first.
+  const selectSearchResult = (term) => {
+    const category = term.category && term.category.trim() ? term.category.trim() : UNCATEGORIZED;
+    setOpenCategories((prev) => new Set(prev).add(category));
+    setOpenTermId(term.id);
+    setSearchQuery('');
+    setShowSuggestions(false);
+    setHighlightedIndex(-1);
+    requestAnimationFrame(() => {
+      document.getElementById(`term-${term.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = suggestions[highlightedIndex] ?? suggestions[0];
+      if (pick) selectSearchResult(pick);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setHighlightedIndex(-1);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleCategory = (category) => {
     setOpenCategories((prev) => {
@@ -199,6 +265,58 @@ const TerminologiesPage = () => {
       </div>
 
       <div className="card">
+        <div className="term-search" ref={searchWrapRef}>
+          <Search size={16} className="term-search-icon" />
+          <input
+            type="text"
+            className="term-search-input"
+            placeholder="Search terminologies..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSuggestions(true);
+              setHighlightedIndex(-1);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onKeyDown={handleSearchKeyDown}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="term-search-clear"
+              onClick={() => {
+                setSearchQuery('');
+                setShowSuggestions(false);
+                setHighlightedIndex(-1);
+              }}
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+
+          {showSuggestions && searchQuery.trim() && (
+            <div className="term-search-suggestions">
+              {suggestions.length === 0 ? (
+                <div className="term-search-empty">No terms match &quot;{searchQuery.trim()}&quot;</div>
+              ) : (
+                suggestions.map((t, i) => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    className={`term-search-suggestion ${i === highlightedIndex ? 'active' : ''}`}
+                    onMouseEnter={() => setHighlightedIndex(i)}
+                    onClick={() => selectSearchResult(t)}
+                  >
+                    <span className="term-search-suggestion-name">{t.term}</span>
+                    <span className="term-search-suggestion-category">{displayCategory(t.category && t.category.trim() ? t.category.trim() : UNCATEGORIZED)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
         {groupedByCategory.length === 0 ? (
           <div className="no-data">
             {isAdmin ? 'No terms yet - add the first one.' : 'No terminologies have been added yet.'}
@@ -222,7 +340,7 @@ const TerminologiesPage = () => {
                       {categoryTerms.map((t) => {
                         const isOpen = openTermId === t.id;
                         return (
-                          <div className="term-item" key={t.id}>
+                          <div className="term-item" key={t.id} id={`term-${t.id}`}>
                             <button type="button" className="term-question" onClick={() => setOpenTermId(isOpen ? null : t.id)}>
                               <span>{t.term}</span>
                               {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
