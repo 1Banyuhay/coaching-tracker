@@ -127,13 +127,16 @@
 .term-search-icon {
   position: absolute;
   left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
   color: #b8a89c;
   pointer-events: none;
 }
 
 .term-search-input {
   width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 2.5rem;
+  box-sizing: border-box;
+  padding: 0.75rem 2.5rem 0.75rem 2.75rem;
   border: 1.5px solid #d4ccc4;
   border-radius: 8px;
   font-size: 14px;
